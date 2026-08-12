@@ -1,3 +1,19 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// FILE : src/app/reconciliation/page.tsx
+// GUNA : menampilkan hasil perbandingan DAT dan LPP dalam bentuk card
+//        ringkasan dan tabel rincian yang bisa difilter.
+//
+// MENGAMBIL DATA LEWAT:
+//   useReconciliation() dari src/hooks/useReconciliation.ts
+//     → yang memanggil /api/reconciliation
+//       → src/app/api/reconciliation/route.ts (di sanalah logika pembandingnya)
+//
+// MEMANGGIL JUGA:
+//   exportReconciliationToExcel() dari src/lib/reconciliationExporter.ts
+//
+// CATATAN: halaman ini hanya mengurus tampilan dan penyaringan.
+// Perhitungan kondisi 1 sampai 6 semuanya dikerjakan di sisi server.
+// ═══════════════════════════════════════════════════════════════════════════
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
@@ -7,8 +23,14 @@ import Topbar from "@/components/Topbar";
 import { useReconciliation, type ReconciliationItem } from "@/hooks/useReconciliation";
 import { exportReconciliationToExcel } from "@/lib/reconciliationExporter";
 
+// Jumlah baris yang ditampilkan per halaman tabel.
 const PAGE_SIZE = 30;
 
+// ─── DAFTAR KONDISI dan tampilannya ────────────────────────────────────────
+// Angka kondisi datang dari server; di sini diterjemahkan jadi nama, penjelasan,
+// dan warna. severity menentukan apakah kondisi itu wajar atau perlu perhatian.
+// Disimpan sebagai objek terpisah supaya kalau ada kondisi baru, cukup
+// ditambahkan di sini tanpa mengubah tampilannya.
 const KONDISI_CONFIG: Record<number, { label: string; desc: string; badge: string; severity: "normal" | "warning" }> = {
   1: { label: "Fisik di CGA",        desc: "Ada di DAT & LPP, CGA sama — konsisten",                 badge: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20", severity: "normal" },
   2: { label: "Belum Mutasi Oracle", desc: "Ada di DAT, tidak ada di LPP — segera mutasi Oracle",     badge: "bg-amber-500/10 text-amber-300 border-amber-500/20",       severity: "warning" },
@@ -17,12 +39,17 @@ const KONDISI_CONFIG: Record<number, { label: string; desc: string; badge: strin
   6: { label: "Mismatch CGA",        desc: "Ada di DAT & LPP tapi CGA berbeda — perlu investigasi",   badge: "bg-purple-500/10 text-purple-300 border-purple-500/20",    severity: "warning" },
 };
 
+// Warna penanda tiap gudang. Kunci objek ini harus sama persis dengan hasil
+// extractCGACode() di server — itu sebabnya penyeragaman kode gudang di sana
+// penting, supaya warnanya tidak gagal muncul.
 const CGA_BADGE: Record<string, string> = {
   CGA1: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
   CGA2: "bg-amber-500/10 text-amber-300 border-amber-500/20",
   CGA3: "bg-rose-500/10 text-rose-300 border-rose-500/20",
 };
 
+// ─── Tombol pindah halaman tabel ───────────────────────────────────────────
+// Komponen kecil terpisah supaya bisa dipakai di atas dan di bawah tabel.
 function Pagination({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (p: number) => void }) {
   if (totalPages <= 1) return null;
   return (
@@ -36,15 +63,30 @@ function Pagination({ page, totalPages, onPage }: { page: number; totalPages: nu
   );
 }
 
+// ═══ KOMPONEN UTAMA HALAMAN — MULAI (baris 39-akhir) ═══════════════════════
 function ReconciliationPageContent() {
   const searchParams = useSearchParams();
   const { items, summary, loading } = useReconciliation();
 
+  // Empat penyaring yang bisa dipakai bersamaan:
+  //   activeKondisi → kondisi 1/2/4/5/6, atau semua
+  //   cga           → gudang tertentu, atau semua
+  //   search        → pencarian kode aset atau keterangan
+  //   page          → halaman tabel yang sedang dibuka
   const [activeKondisi, setActiveKondisi] = useState<number | "ALL">("ALL");
   const [cga, setCga] = useState<"ALL" | "CGA1" | "CGA2" | "CGA3">("ALL");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  // ─── LOGIC pembaca tautan dari Dashboard — MULAI (baris 50-62) ──────────
+  // Di Dashboard ada kartu "DAT vs LPP" yang bisa diklik. Kartu itu membawa
+  // pengguna ke halaman ini lengkap dengan penyaringnya, lewat alamat seperti
+  //   /reconciliation?kondisi=2&cga=CGA1
+  // Bagian ini yang membaca alamat tersebut lalu memasang penyaringnya.
+  //
+  // Daftar pemicu useEffect sengaja dikosongkan (baris 62), supaya hanya
+  // dijalankan SEKALI saat halaman dibuka. Kalau tidak, penyaring yang
+  // diubah pengguna akan terus dikembalikan ke nilai dari alamat.
   // Deep-link dari Dashboard Baris 2 (DATvsLPPCards) — baca ?kondisi=2&cga=CGA1
   // dan pre-apply filter sekali saat halaman dibuka.
   useEffect(() => {
@@ -60,7 +102,16 @@ function ReconciliationPageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // ─── LOGIC pembaca tautan dari Dashboard — SELESAI ──────────────────────
 
+  // ─── LOGIC penyaringan bertumpuk — MULAI (baris 64-74) ──────────────────
+  // Tiap baris data harus lolos SEMUA penyaring yang sedang aktif.
+  // Bentuk penulisannya memakai return false lebih awal — begitu satu syarat
+  // tidak terpenuhi, baris itu langsung dibuang tanpa memeriksa sisanya.
+  //
+  // Dibungkus useMemo supaya penyaringan hanya dihitung ulang kalau datanya
+  // atau penyaringnya berubah — bukan setiap kali halaman digambar ulang.
+  // Penting karena jumlah barisnya bisa ribuan.
   const filtered = useMemo(() => {
     return items.filter((it) => {
       if (activeKondisi !== "ALL" && it.kondisi !== activeKondisi) return false;
@@ -72,14 +123,29 @@ function ReconciliationPageContent() {
       return true;
     });
   }, [items, activeKondisi, cga, search]);
+  // ─── LOGIC penyaringan bertumpuk — SELESAI ──────────────────────────────
 
+  // ─── LOGIC pemenggalan halaman — MULAI (baris 76-80) ────────────────────
+  // Dikerjakan SETELAH penyaringan, bukan sebelumnya — supaya jumlah halaman
+  // mengikuti data yang benar-benar tampil.
+  //
+  // Math.max(1, ...) menjaga agar jumlah halaman tidak pernah nol, karena
+  // halaman ke-0 akan membuat tombol navigasinya berperilaku aneh.
+  // .slice() memotong bagian yang sesuai halaman aktif.
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = useMemo(
     () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filtered, page]
   );
+  // ─── LOGIC pemenggalan halaman — SELESAI ────────────────────────────────
 
 
+  // ─── LOGIC ekspor Excel — MULAI (baris 83-90) ───────────────────────────
+  // Yang dikirim adalah filtered (data setelah disaring), BUKAN items.
+  // Jadi isi berkas Excel selalu sama dengan yang sedang terlihat di layar.
+  //
+  // allItems tetap ikut dikirim untuk keperluan ringkasan di dalam berkasnya,
+  // supaya pembaca laporan tahu ini bagian dari berapa total data.
   const handleExport = useCallback(() => {
     exportReconciliationToExcel({
       items: filtered,
@@ -88,6 +154,9 @@ function ReconciliationPageContent() {
       cga,
     });
   }, [filtered, items, activeKondisi, cga]);
+  // ─── LOGIC ekspor Excel — SELESAI ───────────────────────────────────────
+  // Susunan kartu ringkasan di bagian atas halaman. Angkanya diambil dari
+  // summary yang sudah dihitung server, bukan dihitung ulang di sini.
   const cards = [
     { kondisi: 1, count: summary?.kondisi1 ?? 0 },
     { kondisi: 2, count: summary?.kondisi2 ?? 0 },

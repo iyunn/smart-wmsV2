@@ -1,3 +1,16 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// FILE: src/lib/txtParser.ts
+// GUNA: mengubah file DAT hasil export Oracle (.txt) menjadi array objek
+//       yang siap disimpan ke database.
+//
+// DIPANGGIL OLEH : startPipeline() di src/components/UploadSection.tsx
+// HASILNYA KE   : processBatches() di src/lib/batchProcessor.ts
+// MEMANGGIL     : tidak ada file lain — murni pengolahan teks, tanpa database.
+//
+// PRINSIP FILE INI: parser dibuat TOLERAN. Satu baris rusak tidak boleh
+// menggagalkan 5.000 baris lainnya, karena file DAT berasal dari sistem lain
+// (Oracle) yang formatnya tidak bisa kita kendalikan.
+// ═══════════════════════════════════════════════════════════════════════════
 /**
  * txtParser.ts
  * Parses Oracle DAT export file (.txt)
@@ -26,6 +39,18 @@ function cellToString(value: string): string {
  * - "2383000"         → 2383000     (plain integer)
  * - " - "             → 0
  */
+// ─── LOGIC konversi angka Oracle — MULAI (baris 29-61) ─────────────────────
+// INI SALAH SATU BAGIAN TERSULIT. Oracle mengekspor angka dengan format yang
+// berbeda-beda tergantung setelan komputer yang mengekspor:
+//
+//   "2.383.000"     → titik = pemisah ribuan      → 2383000
+//   "10.164.583,33" → titik ribuan, koma desimal → 10164583
+//   "10164583.33"   → titik = desimal            → 10164583
+//   " - "           → kosong                     → 0
+//
+// Logikanya bertingkat: ada koma? pasti format Indonesia. Tidak ada koma?
+// hitung jumlah titik — lebih dari satu berarti ribuan. Titiknya tepat satu?
+// lihat panjang angka setelahnya: <=2 digit berarti desimal, >2 berarti ribuan.
 function cellToNumber(value: string): number {
   const str = value.trim();
   if (!str || str === "-" || str === " - ") return 0;
@@ -59,6 +84,7 @@ function cellToNumber(value: string): number {
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : Math.round(num);
 }
+// ─── LOGIC konversi angka Oracle — SELESAI ─────────────────────────────────
 
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, " ");
@@ -80,6 +106,13 @@ const MONTH_ABBR = [
   "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
 ];
 
+// ─── LOGIC konversi tanggal — MULAI (baris 83-136) ─────────────────────────
+// Masalah serupa: urutan bisa DD/MM atau MM/DD, pemisah bisa "/" atau "-".
+// Cara menebaknya:
+//   1. cari bagian 4 digit → itu tahun
+//   2. dari dua sisa angka, kalau salah satu > 12 → pasti itu TANGGAL
+//   3. kalau dua-duanya <= 12 (benar-benar ambigu) → pakai standar Indonesia DD/MM
+//   4. kalau tetap gagal → kembalikan nilai aslinya, DATA TIDAK DIBUANG
 function parseTanggalDokumen(raw: string): string {
   const str = (raw ?? "").trim();
   if (!str || str === "-" || str === " - ") return "";
@@ -134,7 +167,12 @@ function formatTanggal(day: number, month: number, year: number, raw: string): s
   return `${dd}-${mmm}-${year}`;
 }
 
+// ─── LOGIC konversi tanggal — SELESAI ──────────────────────────────────────
 /** Auto-detect delimiter: pipe atau tab */
+// ─── LOGIC deteksi pemisah kolom — MULAI (baris 138-~145) ──────────────────
+// File Oracle bisa memakai TAB atau PIPE ("|") tergantung setelan export.
+// Caranya: hitung jumlah masing-masing di baris pertama, pakai yang lebih banyak.
+// Jadi pengguna TIDAK PERLU tahu format filenya.
 function detectDelimiter(firstLine: string): string {
   const pipeCount = (firstLine.match(/\|/g) ?? []).length;
   const tabCount  = (firstLine.match(/\t/g) ?? []).length;
@@ -145,6 +183,10 @@ function detectDelimiter(firstLine: string): string {
 
 const TXT_COLUMN_MAP: Record<string, keyof AssetRecord> = {
   "toko":             "toko",
+// ─── PEMETAAN nama kolom file → nama kolom database ────────────────────────
+// Nama di file DAT berbeda dengan nama kolom di Supabase, jadi perlu dipetakan.
+//   "No. Seri"   di file  →  kolom kode_asset  di database
+//   "Keterangan" di file  →  kolom deskripsi   di database
   "sub coce":         "sub_coce",
   "kategori":         "kategori_oracle",
   "no. seri":         "kode_asset",
@@ -157,12 +199,22 @@ const TXT_COLUMN_MAP: Record<string, keyof AssetRecord> = {
   "tanggal dokumen":  "tanggal_dokumen",
 }
 
+// FINANCIAL_FIELDS dipakai untuk menentukan kolom mana yang harus lewat
+// cellToNumber(). Memakai Set karena .has() lebih cepat dan lebih jelas
+// maksudnya dibanding .includes() pada array biasa.
 const FINANCIAL_FIELDS = new Set<keyof AssetRecord>(["kuantitas", "biaya_perolehan", "jumlah_tercatat"])
+// REQUIRED_HEADERS = kolom yang WAJIB ada. Kalau kurang, proses dihentikan.
 const REQUIRED_HEADERS = ["toko", "kategori", "no. seri", "keterangan"]
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+// ═══ LOGIC UTAMA PENGURAI FILE — MULAI (baris 165-270) ═════════════════════
+// Masukan : objek File dari input upload
+// Keluaran: { records, skippedRows, warnings }
 export async function parseTxtFile(file: File): Promise<ParseResult> {
+  // LANGKAH 1 — cek ekstensi file.
+  // .split(".") memecah nama file, .pop() ambil elemen terakhir.
+  // Tanda ?. mencegah error kalau hasilnya undefined.
   const ext = file.name.split(".").pop()?.toLowerCase();
   if (ext !== "txt") {
     throw new Error(
@@ -170,6 +222,10 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
     );
   }
 
+  // LANGKAH 2 — baca isi file lalu pecah jadi baris.
+  // file.text() adalah Web API bawaan browser (mengembalikan Promise).
+  // Pola /\r?\n/ menangani DUA gaya akhir baris: Windows (\r\n) dan Unix (\n).
+  // .filter() membuang baris kosong.
   const text  = await file.text();
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
 
@@ -177,13 +233,20 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
     throw new Error("File tidak memiliki data. Pastikan file DAT tidak kosong.");
   }
 
+  // LANGKAH 3 — tentukan pemisah kolom (TAB atau PIPE).
   // ── Auto-detect delimiter ─────────────────────────────────────────────────
   const delimiter = detectDelimiter(lines[0]);
 
+  // LANGKAH 4 — susun daftar nama kolom, lalu seragamkan penulisannya
+  // dengan normalizeHeader ("No.  Seri" → "no. seri") supaya tidak gagal
+  // hanya karena beda huruf besar-kecil atau spasi ganda.
   // ── Parse header ──────────────────────────────────────────────────────────
   const rawHeaders = lines[0].split(delimiter);
   const headers    = rawHeaders.map(normalizeHeader);
 
+  // LANGKAH 5 — validasi kolom wajib. Kalau ada yang hilang, proses DIHENTIKAN
+  // dengan pesan yang menyebut kolom mana saja yang kurang. Ini mencegah file
+  // yang salah ikut terproses.
   // ── Validasi kolom wajib ──────────────────────────────────────────────────
   const missing = REQUIRED_HEADERS.filter((req) => !headers.includes(req));
   if (missing.length > 0) {
@@ -193,23 +256,37 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
     );
   }
 
+  // LANGKAH 6 — simpan POSISI tiap kolom ke dalam Map.
+  // Dengan Map, mencari posisi kolom cukup colIndex.get("no. seri") —
+  // tidak perlu menelusuri array setiap kali. Ini penting karena URUTAN KOLOM
+  // di file Oracle bisa berubah-ubah antar export.
   // ── Build column index map ────────────────────────────────────────────────
   const colIndex = new Map<string, number>();
   headers.forEach((h, i) => colIndex.set(h, i));
 
+  // ─── PERULANGAN baris data — MULAI (baris 205-263) ──────────────────────
+  // records     = baris yang berhasil diurai
+  // skippedRows = baris yang dilewati karena rusak
+  // warnings    = catatan untuk baris yang tetap diproses tapi ada kekurangan
   // ── Parse data rows ───────────────────────────────────────────────────────
   const records: AssetRecord[] = [];
   let skippedRows = 0;
   const warnings: string[] = [];
 
+  // Perulangan mulai dari i = 1, bukan 0 — karena baris 0 adalah header.
   for (let i = 1; i < lines.length; i++) {
     const cells = lines[i].split(delimiter);
 
+    // Baris dengan kurang dari 5 kolom dianggap rusak.
+    // `continue` MELEWATI baris ini tanpa menghentikan perulangan —
+    // inilah yang membuat satu baris bermasalah tidak menggagalkan seluruh file.
     if (cells.length < 5) {
       skippedRows++;
       continue;
     }
 
+    // Siapkan objek dengan nilai bawaan dulu, baru diisi dari file.
+    // Kalau ada kolom yang tidak ada di file, nilainya tetap aman (tidak undefined).
     const record: AssetRecord = {
       toko:            "",
       kategori_oracle: "",
@@ -225,6 +302,13 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
       is_prodsus:      false,
     };
 
+    // ─── PENGISIAN tiap kolom — MULAI (baris 228-241) ─────────────────────
+    // Object.entries() mengubah objek pemetaan jadi array pasangan
+    // [namaDiFile, namaDiDatabase], lalu diperiksa satu per satu.
+    // Tiap nilai diarahkan ke fungsi konversi yang sesuai:
+    //   kolom keuangan  → cellToNumber()
+    //   kolom tanggal   → parseTanggalDokumen()
+    //   selain itu      → cellToString()
     for (const [headerName, fieldName] of Object.entries(TXT_COLUMN_MAP)) {
       const idx = colIndex.get(headerName);
       if (idx === undefined) continue;
@@ -239,9 +323,14 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
         (record as any)[fieldName] = cellToString(rawValue);
       }
     }
+    // ─── PENGISIAN tiap kolom — SELESAI ───────────────────────────────────
 
     if (!record.kuantitas || record.kuantitas === 0) record.kuantitas = 1;
 
+    // ─── LOGIC penentu produk khusus (prodsus) — MULAI (baris 248-251) ────
+    // Dipakai halaman Live Stock untuk memisah barang biasa vs produk khusus.
+    // Regex /^0+$/ artinya "seluruh isinya angka nol" — perlu, karena Oracle
+    // memakai "0" DAN "00000000" untuk arti yang sama (bukan prodsus).
     // Derive is_prodsus. Non-prodsus kalau sub_coce kosong ATAU semua nol
     // (Oracle pakai "0", "00000000", dst untuk non-prodsus). Selain itu = prodsus
     // (mis. FRDCHICKEN, SAYB, PCAFE, YCGOLD).
@@ -249,22 +338,30 @@ export async function parseTxtFile(file: File): Promise<ParseResult> {
     const isZero = scRaw === "" || /^0+$/.test(scRaw);
     record.sub_coce   = scRaw || "0";
     record.is_prodsus = !isZero;
+    // ─── LOGIC penentu produk khusus — SELESAI ────────────────────────────
 
+    // Baris tanpa kode aset DAN tanpa deskripsi dianggap kosong → dilewati.
     if (!record.kode_asset && !record.deskripsi) {
       skippedRows++;
       continue;
     }
 
+    // Baris tanpa kode aset TETAP DIPROSES, hanya dicatat sebagai peringatan.
+    // Alasannya: barang tetap perlu tercatat meski nomor serinya belum diisi.
     if (!record.kode_asset) {
       warnings.push(`Baris ${i + 1}: "No. Seri" kosong — baris tetap diproses.`);
     }
 
     records.push(record);
   }
+  // ─── PERULANGAN baris data — SELESAI ────────────────────────────────────
 
   if (records.length === 0) {
     throw new Error("Tidak ada baris data yang valid setelah parsing.");
   }
 
+  // Hasil dikembalikan ke UploadSection, lalu records diteruskan ke
+  // processBatches() untuk dikirim ke server per 500 baris.
   return { records, skippedRows, warnings };
 }
+// ═══ LOGIC UTAMA PENGURAI FILE — SELESAI ═══════════════════════════════════

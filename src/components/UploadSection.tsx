@@ -1,3 +1,20 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// FILE : src/components/UploadSection.tsx
+// GUNA : tampilan kotak unggah file DAT sekaligus PEMICU seluruh proses.
+//        Semua yang terjadi setelah tombol Proses ditekan bermula dari sini.
+//
+// FILE INI MEMANGGIL:
+//   - parseTxtFile()   dari src/lib/txtParser.ts     (membaca isi file)
+//   - processBatches() dari src/lib/batchProcessor.ts (mengirim per kelompok)
+//   - fetch ke /api/process/clear                     (mengosongkan data lama)
+//
+// DIPAKAI DI: src/app/upload/page.tsx
+//
+// TIGA TAHAP yang dijalankan startPipeline() di bawah:
+//   Tahap 1 — baca dan urai file
+//   Tahap 2 — kosongkan data lama
+//   Tahap 3 — kirim data baru per kelompok 500 baris
+// ═══════════════════════════════════════════════════════════════════════════
 "use client";
 
 /**
@@ -15,6 +32,16 @@ import { parseTxtFile } from "@/lib/txtParser";
 import { processBatches } from "@/lib/batchProcessor";
 import type { PipelineState, PipelinePhase, ProcessSummary } from "@/lib/types";
 
+// ═══ LOGIC PENGATUR TAHAPAN LAYAR — MULAI (baris 20-~199) ══════════════════
+// Halaman ini punya banyak tahap yang berurutan: menunggu file, sedang mengurai,
+// sedang mengirim, berhasil, gagal. Tiap tahap mengubah beberapa nilai sekaligus.
+//
+// Kalau memakai useState terpisah-pisah, akan ada enam sampai tujuh pemanggilan
+// setState yang harus dijaga supaya tidak saling bertabrakan. Dengan useReducer,
+// semua perubahan itu dikumpulkan di satu tempat dan dipanggil cukup dengan
+// dispatch({ type: "PARSE_START" }).
+//
+// Daftar di bawah ini adalah semua "kejadian" yang mungkin terjadi di layar ini.
 // ─── State management ─────────────────────────────────────────────────────────
 
 type Action =
@@ -43,6 +70,9 @@ const initialState: PipelineState = {
   errorDetail: "",
 };
 
+// Fungsi reducer menerima keadaan sekarang dan sebuah kejadian, lalu
+// mengembalikan keadaan baru. Ini satu-satunya tempat yang boleh mengubah
+// keadaan layar, sehingga alurnya mudah ditelusuri saat ada yang aneh.
 function reducer(state: PipelineState, action: Action): PipelineState {
   switch (action.type) {
     case "DRAG_ENTER":
@@ -200,14 +230,24 @@ function SummaryGrid({ summary }: { summary: ProcessSummary }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+// ═══ KOMPONEN UTAMA — MULAI (baris 203-akhir) ══════════════════════════════
 export default function UploadSection() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // inputRef menunjuk ke elemen input file yang disembunyikan. Tombol "Pilih File"
+  // sebenarnya mengklik elemen itu dari balik layar.
   const inputRef = useRef<HTMLInputElement>(null);
+  // abortRef menyimpan alat pembatalan. Disimpan memakai useRef, bukan useState,
+  // karena nilainya perlu bertahan antar-render TAPI perubahannya tidak boleh
+  // memicu penggambaran ulang layar.
   const abortRef = useRef<AbortController | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
   // ── File selection ──────────────────────────────────────────────────────────
 
+  // ─── LOGIC penerima file — MULAI (baris 211-~228) ───────────────────────
+  // Dipakai baik saat file dipilih lewat tombol maupun lewat seret-dan-lepas.
+  // Ekstensi diperiksa lebih dulu supaya kesalahan file ketahuan sejak awal,
+  // sebelum isinya sempat dibaca.
   const handleFile = useCallback((file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "txt") {
@@ -241,17 +281,27 @@ export default function UploadSection() {
   };
   const handleDragLeave = () => dispatch({ type: "DRAG_LEAVE" });
 
+  // ═══ LOGIC PEMICU SELURUH PROSES — MULAI (baris 246-349) ════════════════
+  // Inilah fungsi yang berjalan saat tombol Proses ditekan.
   // ── Pipeline trigger ────────────────────────────────────────────────────────
 
   const startPipeline = async () => {
     if (!state.file || state.phase !== "selected") return;
 
+    // AbortController adalah alat bawaan browser untuk membatalkan pekerjaan
+    // yang sedang berjalan. Objek signal-nya nanti diteruskan sampai ke fetch
+    // di dalam batchProcessor, sehingga tombol Batal benar-benar menghentikan
+    // permintaan — bukan sekadar menyembunyikan tampilan.
     abortRef.current = new AbortController();
     const { signal } = abortRef.current;
 
     // Phase 1: Parse
     dispatch({ type: "PARSE_START" });
 
+    // Pembacaan file berjalan sekaligus tanpa jeda, jadi tidak ada kemajuan
+    // nyata yang bisa dilaporkan. Angka yang bergerak di sini hanya untuk
+    // memberi tahu pengguna bahwa aplikasi sedang bekerja, bukan membeku.
+    // Batasnya sengaja 88 persen — sisanya diisi setelah pembacaan selesai.
     // Animate parse progress (XLSX.read is sync under the hood)
     let fakeProgress = 0;
     const parseTimer = setInterval(() => {
@@ -259,6 +309,9 @@ export default function UploadSection() {
       dispatch({ type: "PARSE_PROGRESS", value: fakeProgress });
     }, 80);
 
+    // ─── TAHAP 1: baca dan urai file ──────────────────────────────────────
+    // Di sinilah parseTxtFile() dari src/lib/txtParser.ts dipanggil.
+    // Hasilnya berupa records (baris yang berhasil dibaca) dan skippedRows.
     let parseResult;
     try {
       parseResult = await parseTxtFile(state.file);
@@ -277,6 +330,11 @@ export default function UploadSection() {
 
     if (signal.aborted) return;
 
+    // ─── TAHAP 2: kosongkan data lama ─────────────────────────────────────
+    // Alasan strategi hapus-lalu-isi: file DAT adalah potret kondisi pada satu
+    // waktu, bukan catatan transaksi. Aset yang sudah dihapus di Oracle harus
+    // ikut hilang di sini. Kalau datanya cuma diperbarui, aset lama akan
+    // menumpuk selamanya.
     // Phase 2: Clear existing data — sekali sebelum batch pertama
     // Bagian dari Full Replace Strategy: DELETE semua assets_raw dulu,
     // baru INSERT fresh. Dipisah dari /api/process agar tidak terpanggil
@@ -296,6 +354,8 @@ export default function UploadSection() {
         return;
       }
     } catch (err: unknown) {
+      // Pembatalan oleh pengguna bukan kesalahan, jadi tidak perlu menampilkan
+      // pesan error. Cukup keluar diam-diam.
       if (err instanceof DOMException && err.name === "AbortError") return;
       dispatch({
         type: "ERROR",
@@ -307,6 +367,9 @@ export default function UploadSection() {
 
     if (signal.aborted) return;
 
+    // ─── TAHAP 3: kirim data per kelompok ─────────────────────────────────
+    // Math.ceil dipakai supaya sisa yang tidak genap tetap dihitung satu kelompok.
+    // Contohnya 1.200 baris menjadi 3 kelompok, bukan 2.
     // Phase 3: Batch processing
     const { records, skippedRows } = parseResult;
     const totalBatches = Math.ceil(records.length / 500);
@@ -314,6 +377,10 @@ export default function UploadSection() {
 
     let summary;
     try {
+      // Perhatikan bentuk pemanggilannya: fungsi di baris 320-327 dikirim
+      // sebagai parameter ke processBatches, lalu dipanggil balik dari sana
+      // setiap satu kelompok selesai. Inilah yang menggerakkan bar kemajuan.
+      // Cara ini membuat batchProcessor tidak perlu tahu apa pun soal React.
       summary = await processBatches(
         records,
         skippedRows,
@@ -336,6 +403,9 @@ export default function UploadSection() {
       return;
     }
 
+    // Gagal seluruhnya diperlakukan berbeda dengan gagal sebagian. Kalau hanya
+    // sebagian, hasilnya tetap dianggap berhasil dan jumlah kegagalan
+    // ditampilkan di ringkasan — sebagian data masuk lebih baik daripada batal.
     // Phase 3: Final state
     if (summary.failedBatches === summary.totalBatches) {
       dispatch({
@@ -347,7 +417,11 @@ export default function UploadSection() {
       dispatch({ type: "SUCCESS", summary });
     }
   };
+  // ═══ LOGIC PEMICU SELURUH PROSES — SELESAI ══════════════════════════════
 
+  // Membatalkan pekerjaan yang sedang berjalan lalu mengembalikan layar
+  // ke keadaan awal. Tanda tanya pada abortRef.current?.abort() menjaga
+  // supaya tidak error kalau ternyata belum ada proses yang berjalan.
   const cancelUpload = () => {
     abortRef.current?.abort();
     dispatch({ type: "RESET" });

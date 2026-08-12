@@ -1,3 +1,26 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// FILE : src/app/api/process/route.ts
+// GUNA : upload DAT. Semua yang benar-benar menulis database terjadi di sini, di sisi server.
+//
+// SIAPA YANG MEMANGGIL:
+//   sendBatch() di src/lib/batchProcessor.ts, lewat fetch POST ke /api/process.
+//   Dipanggil berulang — satu kali untuk tiap kelompok 500 baris.
+//
+// FILE INI MEMANGGIL:
+//   - classifyAsset()  dari src/lib/classifier.ts  (menebak jenis & merk)
+//   - supabase         dari src/lib/supabaseClient.ts (koneksi database)
+//
+// KENAPA DIKERJAKAN DI SERVER, BUKAN DI BROWSER:
+//   kunci database tidak boleh sampai ke browser. Semua yang menyentuh
+//   database dikerjakan di sini; halaman hanya bicara lewat fetch.
+//
+// URUTAN KERJANYA (lihat penanda angka 1-7 di dalam fungsi POST):
+//   1. ambil aturan klasifikasi   5. simpan hasil klasifikasi
+//   2. klasifikasi tiap baris     6. kembalikan tanda "Allocated"
+//   3. simpan data mentah         7. bersihkan catatan usang + sinkron staging
+//   4. petakan kode ke id
+// Langkah 6 dan 7 hanya dijalankan pada kelompok TERAKHIR.
+// ═══════════════════════════════════════════════════════════════════════════
 import { NextResponse } from 'next/server'
 import { classifyAsset } from '@/lib/classifier'
 import { supabase } from '@/lib/supabaseClient'
@@ -8,6 +31,13 @@ import { supabase } from '@/lib/supabaseClient'
 // 1000 baris pertama tanpa error, menyebabkan data parsial dianggap lengkap.
 // (Root cause bug 18 Juni: auto-clear asset_notes salah hapus 8/10 catatan
 // karena query assets_raw.kode_asset cuma dapat ~1000 dari 4666 baris.)
+// ─── LOGIC pengambilan data bertahap (pagination) — MULAI (baris 11-34) ────
+// Catatan di atas sudah menjelaskan alasannya. Yang perlu diingat saat membaca:
+// pola while + .range() ini muncul di beberapa file lain juga —
+// fetchKodeAssetCGASet() di bawah, fetchAll() di api/reconciliation/route.ts,
+// dan perulangan serupa di api/stock/live serta api/dashboard/stats.
+// Semua memakai batas 1000 baris per putaran, berhenti kalau hasilnya kurang
+// dari 1000 (berarti sudah habis).
 async function fetchAllKodeAsset(): Promise<Set<string>> {
   let allKodes: string[] = []
   let from = 0
@@ -32,11 +62,19 @@ async function fetchAllKodeAsset(): Promise<Set<string>> {
   return new Set(allKodes)
 }
 
+// ─── LOGIC pengambilan data bertahap — SELESAI ─────────────────────────────
 // Ekstrak kode CGA dari field toko: "CGA1 – ..." → "CGA1"
+// ─── LOGIC pembaca kode gudang — MULAI (baris 36-39) ───────────────────────
+// Mengambil kode gudang dari nama toko, apa pun cara penulisannya:
+//   "CGA1 GUDANG UTAMA" → "CGA1"
+//   "cga2"             → "CGA2"
+// Pola /CGA\d/i artinya: huruf CGA diikuti satu angka, tanpa peduli
+// huruf besar atau kecil (itu guna penanda "i" di akhir).
 function extractCGA(toko: string): string {
   const m = (toko ?? "").match(/CGA\d/i)
   return m ? m[0].toUpperCase() : ""
 }
+// ─── LOGIC pembaca kode gudang — SELESAI ───────────────────────────────────
 
 // Ambil semua kode_asset yang berlokasi di CGA (toko mengandung CGA1/2/3).
 // Dipakai untuk auto-sync staging → asset_notes saat upload DAT.
@@ -72,6 +110,18 @@ async function fetchKodeAssetCGASet(): Promise<Set<string>> {
 // Auto-sync staging_area → asset_notes.
 // Untuk tiap item staging yang punya kode_asset & ada di CGA (DAT terbaru):
 // pindahkan catatan ke asset_notes, lalu hapus item dari staging.
+// ═══ LOGIC PEMINDAH CATATAN DARI RUANG TUNGGU — MULAI (baris 75-109) ═══════
+// Bagian ini menghubungkan dua alur yang kelihatannya terpisah:
+//
+//   Barang dikembalikan dari toko
+//      → dicatat lewat Surat Jalan Penerimaan (halaman /sj/masuk)
+//      → masuk ke Staging Area, petugas menulis catatan kondisi barangnya
+//      → saat DAT baru diunggah dan kode asetnya sudah muncul di sana:
+//           catatannya dipindahkan ke tabel asset_notes (tampil di Monitoring)
+//           barisnya dihapus dari Staging Area
+//
+// Jadi Staging Area itu semacam ruang tunggu: untuk barang yang secara fisik
+// sudah kembali, tapi belum tercatat di Oracle.
 async function syncStagingToNotes(): Promise<number> {
   const { data: stagingItems } = await supabase
     .from('staging_area')
@@ -87,9 +137,13 @@ async function syncStagingToNotes(): Promise<number> {
   for (const item of stagingItems) {
     if (!cgaSet.has((item as any).kode_asset)) continue
 
+    // Catatan yang kosong tidak perlu dipindahkan — barisnya tetap dihapus
+    // dari ruang tunggu karena barangnya memang sudah tercatat di DAT.
     if ((item as any).catatan && (item as any).catatan.trim()) {
       await supabase
         .from('asset_notes')
+      // .upsert() = perbarui kalau kode asetnya sudah ada, buat baru kalau belum.
+      // onConflict menentukan kolom mana yang dipakai untuk mengecek "sudah ada".
         .upsert(
           { kode_asset: (item as any).kode_asset, catatan: (item as any).catatan, updated_at: new Date().toISOString() },
           { onConflict: 'kode_asset' }
@@ -98,6 +152,8 @@ async function syncStagingToNotes(): Promise<number> {
     idsToDelete.push((item as any).id)
   }
 
+  // Penghapusan dilakukan per 500 id sekaligus, bukan satu per satu.
+  // .in() menerima daftar id — satu perintah untuk banyak baris.
   if (idsToDelete.length > 0) {
     for (let i = 0; i < idsToDelete.length; i += 500) {
       const batch = idsToDelete.slice(i, i + 500)
@@ -107,7 +163,15 @@ async function syncStagingToNotes(): Promise<number> {
 
   return idsToDelete.length
 }
+// ═══ LOGIC PEMINDAH CATATAN DARI RUANG TUNGGU — SELESAI ════════════════════
 
+// ═══ TITIK MASUK PERMINTAAN DARI BROWSER — MULAI (baris 111-344) ═══════════
+// Nama fungsi POST dikenali otomatis oleh Next.js sebagai penangan permintaan
+// HTTP POST ke alamat /api/process. Tidak perlu daftar rute secara manual.
+//
+// Yang dikirim pengirim (batchProcessor.ts):
+//   data        = 500 baris hasil urai file
+//   isLastBatch = penanda kelompok terakhir, untuk langkah 6 dan 7
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -117,6 +181,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'No data provided' })
     }
 
+    // Aturan diambil SEKALI untuk seluruh kelompok, bukan per baris.
+    // Kalau diambil per baris, satu kelompok berarti 500 kali query ke database.
     // ── 1. Fetch keyword_rules sekali ─────────────────────────────────────────
     const { data: keywordRules, error: rulesError } = await supabase
       .from('keyword_rules')
@@ -126,6 +192,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Failed to fetch keyword rules' })
     }
 
+    // Semua pengolahan di langkah ini terjadi di memori, belum menyentuh database.
+    // Tiap baris menghasilkan dua bagian:
+    //   raw    = data mentah apa adanya   → nanti masuk tabel assets_raw
+    //   result = hasil tebakan classifier → nanti masuk tabel assets_clean
     // ── 2. Classify semua data di memory ──────────────────────────────────────
     const classifiedData = data.map((item: any) => ({
       raw: {
@@ -139,12 +209,21 @@ export async function POST(req: Request) {
         jumlah_tercatat: item.jumlah_tercatat ?? 0,
         invoice_number:  item.invoice_number  ?? null,
         tanggal_dokumen: item.tanggal_dokumen ?? null,
+        // Penentu produk khusus (prodsus), sama seperti di txtParser.
+        // Diulang di sini sebagai pengaman, kalau-kalau data datang dari
+        // sumber lain yang belum melewati parser.
         sub_coce:        (item.sub_coce ?? '0').toString().trim() || '0',
         is_prodsus:      !/^0*$/.test((item.sub_coce ?? '0').toString().trim() || '0'),
       },
       result: classifyAsset(item.deskripsi, keywordRules ?? []),
     }))
 
+    // ─── LANGKAH 3: simpan data mentah — MULAI ──────────────────────────
+    // Dua tabel dipakai, dan ini disengaja:
+    //   assets_raw   = salinan asli dari Oracle, tidak pernah diubah
+    //   assets_clean = hasil klasifikasi, boleh dihitung ulang kapan saja
+    // Dengan begitu, kalau aturan klasifikasi diperbaiki, hasilnya bisa disusun
+    // ulang dari assets_raw tanpa perlu mengunggah file lagi.
     // ── 3. Batch insert assets_raw (500 rows per batch) ─────────────────────
     // DELETE sudah dilakukan sekali via POST /api/process/clear
     // sebelum batch pertama dikirim dari UploadSection.tsx.
@@ -173,6 +252,10 @@ export async function POST(req: Request) {
       allInsertedRaw = [...allInsertedRaw, ...(batchResult ?? [])]
     }
 
+    // ─── LANGKAH 4: hubungkan kedua tabel ───────────────────────────────
+    // assets_clean perlu tahu baris mentah mana pasangannya. Setelah data
+    // mentah tersimpan, database memberi id untuk tiap baris — id itu
+    // dikumpulkan ke dalam Map supaya pencarian pasangannya cepat.
     // ── 4. Map kode_asset → raw_id ────────────────────────────────────────────
     const rawIdMap = new Map<string, string>()
     for (const row of allInsertedRaw) {
@@ -180,6 +263,8 @@ export async function POST(req: Request) {
     }
 
     // ── 5. Batch insert assets_clean (500 rows per batch) ────────────────────
+    // .filter(Boolean) di akhir membuang baris yang tidak dapat pasangan.
+    // Ini cara ringkas untuk menyaring nilai null dari array.
     const cleanRows = classifiedData
       .map(({ raw, result }: any) => {
         const rawId = rawIdMap.get(raw.kode_asset)
@@ -203,6 +288,9 @@ export async function POST(req: Request) {
         .from('assets_clean')
         .insert(batch)
 
+      // Kegagalan di sini sengaja tidak menghentikan proses. Data mentahnya
+      // sudah aman tersimpan, dan hasil klasifikasi bisa disusun ulang nanti
+      // lewat halaman Classification.
       if (cleanError) {
         console.error(`[route] assets_clean insert error batch ${i}:`, cleanError)
         // Tidak fatal — raw sudah tersimpan, clean bisa di-reclassify nanti
@@ -328,12 +416,18 @@ export async function POST(req: Request) {
       }
     }
 
+    // Jawaban dikirim balik ke sendBatch() di batchProcessor.ts.
+    // preview berisi 5 contoh hasil klasifikasi, ditampilkan di layar upload
+    // supaya pengguna bisa langsung melihat apakah tebakannya masuk akal.
     return NextResponse.json({
       success:  true,
       inserted: allInsertedRaw.length,
       preview:  classifiedData.slice(0, 5).map(({ result }: any) => result),
     })
 
+  // Semua kesalahan tak terduga ditangkap di sini dan dibalas sebagai 500.
+  // Ini yang membuat sendBatch() mencoba ulang sekali — sesuai aturannya,
+  // hanya kesalahan 5xx yang layak diulang.
   } catch (error) {
     console.error('[route] error:', error)
     return NextResponse.json(
@@ -342,3 +436,4 @@ export async function POST(req: Request) {
     )
   }
 }
+// ═══ TITIK MASUK PERMINTAAN DARI BROWSER — SELESAI ═════════════════════════

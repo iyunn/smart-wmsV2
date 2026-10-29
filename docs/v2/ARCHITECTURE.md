@@ -130,11 +130,21 @@ SESSION_TTL_HOURS=12
 
 | Tabel | Kolom utama |
 |---|---|
-| `app_users` | `id uuid` (= id Supabase V1), `email` unique, `username` unique, `nik`, `password_hash`, `role` (`super_admin`/`admin`), `status` (`pending`/`active`/`rejected`/`inactive`), `theme` (`dark`/`light`), `must_change_password bool`, `created_at`, `updated_at` |
-| `user_sessions` | `id` (hash SHA-256 dari token cookie), `user_id` FK → `app_users` ON DELETE CASCADE, `expires_at`, `created_at`, `user_agent` |
+| `app_users` | `id uuid` (= id Supabase V1), `email` & `username` unik tanpa beda huruf besar/kecil (`lower()`), `nik`, `password_hash` (bcrypt), `role` (`super_admin`/`admin`), `status` (`pending`/`active`/`rejected` — sama dengan V1; "nonaktifkan" = `rejected`), `theme` (`dark`/`light`), `must_change_password`, `failed_login_count`, `locked_until`, `last_login_at`, `created_at`, `updated_at` |
+| `user_sessions` | `id` (SHA-256 hex dari token cookie), `user_id` FK → `app_users` ON DELETE CASCADE, `created_at`, `expires_at`, `last_seen_at`, `user_agent`, `ip` |
 
-- Cookie hanya berisi token acak 32 byte; DB menyimpan **hash**-nya (bocornya tabel sesi tidak memberi akses).
-- Tabel `profiles` V1 digabung ke `app_users`; FK dari tabel lain yang menunjuk `auth.users`/`profiles` diarahkan ke `app_users`.
+Migrasi `0002_auth` membuat dua tabel ini dan **menghapus `profiles`**; isinya + hash password dari
+`auth.users` diimpor ke `app_users` oleh `npm run db:import-v1` (akun tanpa password → hash `!` +
+`must_change_password`).
+
+Aturan (semua angka di `src/server/auth/policy.ts`):
+- Cookie hanya berisi token acak 32 byte (base64url, 43 karakter); DB menyimpan **hash**-nya.
+- Sesi berlaku `SESSION_TTL_HOURS` (default 12) sejak aktivitas terakhir; diperpanjang saat sisa < separuh (sliding).
+- Sesi otomatis tidak berlaku bila akun tidak `active`; ganti/reset password → semua sesi lain dicabut.
+- Login: email **atau** username. Status `pending`/`rejected` baru diberitahukan setelah password benar
+  (seperti V1). User tidak dikenal tetap menjalankan satu bcrypt (waktu respons sama).
+- 5 kali gagal berturut-turut → akun dikunci 10 menit (atomik di database).
+- bcrypt cost 12; hash lama cost 10 (Supabase) dinaikkan otomatis saat login berhasil. Password 8 karakter – 72 byte.
 
 ## 6. Keamanan
 

@@ -3513,3 +3513,35 @@ dengan kasus sulit (teks berisi tab/baris baru/backslash/kutip/emoji, array & ob
   tetap ada, lpp_raw tetap 5.443), 0 sesi tertinggal di sumber
 - dibaca lewat `createDb` (proses Node TZ Asia/Jakarta): jsonb = array, teks utuh, int8 = number,
   `timestamp` = string jam UTC
+
+# 30 Oktober 2026 — Tahap 2c selesai, Tahap 3a (auth: database & inti server)
+
+### Tahap 2c ✅
+Fillian: impor data V1 ke `smartwms_dev` sesuai (14 tabel, jumlah & checksum identik), commit `2334c4f`.
+
+### Tahap 3 dipecah tiga
+Auth menyentuh database, keamanan, dan UI sekaligus → **3a** database & inti server (tanpa UI),
+**3b** login/register/proxy/sesi di UI, **3c** manajemen user & ganti password.
+
+### Tahap 3a
+- **Migrasi `0002_auth`**: `app_users` (gabungan auth.users + profiles, id sama dengan Supabase),
+  `user_sessions`; `profiles` dihapus. Nilai role/status/theme sama dengan V1 (`pending`/`active`/
+  `rejected` — di V1 "nonaktifkan" berarti `rejected`). Email & username unik via `lower()`.
+- **Impor akun**: `db:import-v1` menyalin `profiles` ⨝ `auth.users` → `app_users` dengan COPY +
+  checksum seperti tabel lain. Ditolak bila ada email/username kembar. Akun tanpa password → hash `!`
+  + `must_change_password`. `created_at` profil yang NULL diambil dari `auth.users.created_at`
+  (bukan `now()`, supaya checksum sumber vs tujuan deterministik).
+- **`src/server/auth/`**: `policy.ts` (semua angka aturan), `password.ts` (bcryptjs, kompatibel `$2a$`),
+  `tokens.ts` (32 byte acak, simpan SHA-256), `session.ts` (create/validate sliding/revoke),
+  `login.ts` (email atau username, kunci 5× gagal/10 menit, upgrade hash cost 10 → 12).
+- Keputusan keamanan dari V1 yang dipertahankan: status pending/rejected baru diberitahukan
+  setelah password benar. Tambahan: user tak dikenal tetap menjalankan satu bcrypt (dummy hash)
+  supaya waktu respons tidak membocorkan apakah akun ada.
+
+[VERIFIKASI] Sandbox: 7 unit test Vitest (password & token) + 23 skenario integrasi terhadap
+PostgreSQL dengan 4 akun tiruan ($2a$10$ seperti Supabase, 1 pending, 1 tanpa password) — semua
+lolos: login username/email tanpa beda huruf, upgrade hash ke $2b$12$, kunci akun & buka otomatis,
+reset hitungan gagal, status pending tidak bocor saat password salah, waktu respons user tak dikenal
+≈ password salah (348 vs 332 ms), token asli tidak tersimpan, sliding expiry, sesi kedaluwarsa
+dihapus, akun dinonaktifkan → sesi langsung tidak berlaku, cabut semua sesi kecuali sesi sekarang.
+`tsc --noEmit` 0 error; codegen 15 tabel.

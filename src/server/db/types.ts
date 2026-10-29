@@ -25,6 +25,23 @@ export type Numeric = ColumnType<number, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AppUsers {
+  created_at: Generated<Timestamp>;
+  email: string;
+  failed_login_count: Generated<number>;
+  id: Generated<string>;
+  last_login_at: Timestamp | null;
+  locked_until: Timestamp | null;
+  must_change_password: Generated<boolean>;
+  nik: Generated<string>;
+  password_hash: string;
+  role: Generated<string>;
+  status: Generated<string>;
+  theme: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  username: string;
+}
+
 export interface AssetNotes {
   catatan: string;
   kode_asset: string;
@@ -116,18 +133,6 @@ export interface PendinganItems {
   urgensi: Generated<string | null>;
 }
 
-export interface Profiles {
-  created_at: Generated<Timestamp | null>;
-  email: string;
-  id: string;
-  nik: string;
-  role: Generated<string>;
-  status: Generated<string>;
-  theme: Generated<string>;
-  updated_at: Generated<Timestamp | null>;
-  username: string;
-}
-
 export interface SjItemTemplates {
   created_at: Generated<Timestamp | null>;
   id: Generated<string>;
@@ -195,7 +200,18 @@ export interface SuratJalanItems {
   urutan: Generated<number>;
 }
 
+export interface UserSessions {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: string;
+  ip: string | null;
+  last_seen_at: Generated<Timestamp>;
+  user_agent: string | null;
+  user_id: string;
+}
+
 export interface DB {
+  app_users: AppUsers;
   asset_notes: AssetNotes;
   assets_clean: AssetsClean;
   assets_raw: AssetsRaw;
@@ -204,10 +220,10 @@ export interface DB {
   keyword_rules: KeywordRules;
   lpp_raw: LppRaw;
   pendingan_items: PendinganItems;
-  profiles: Profiles;
   sj_item_templates: SjItemTemplates;
   sj_tujuan: SjTujuan;
   staging_area: StagingArea;
   surat_jalan: SuratJalan;
   surat_jalan_items: SuratJalanItems;
+  user_sessions: UserSessions;
 }

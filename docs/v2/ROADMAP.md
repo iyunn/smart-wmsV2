@@ -20,8 +20,10 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 1b | Fondasi V2 (PostgreSQL dev, dependency, `src/server/db`) | V2 | ✅ |
 | 2a | Snapshot skema & jumlah baris Supabase | V2 | ✅ |
 | 2b | Migrasi `0001_baseline` | V2 | ✅ |
-| 2c | Impor data V1 + pembanding jumlah baris | V2 | 🚧 |
-| 3 | Auth V2 | V2 | ⬜ |
+| 2c | Impor data V1 + pembanding jumlah baris | V2 | ✅ |
+| 3a | Auth — database & inti server | V2 | 🚧 |
+| 3b | Auth — login, register, proxy, sesi di UI | V2 | ⬜ |
+| 3c | Auth — manajemen user & ganti password | V2 | ⬜ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
 | 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
 | 6 | Server Windows & backup | PC server | ⬜ |
@@ -91,20 +93,37 @@ Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan
 **Selesai bila:** `npm run db:migrate` membuat semua tabel di `smartwms_dev`; `types.ts` berisi semua tabel V1.
 **STOP**
 
-### 2c — Impor data 🚧
+### 2c — Impor data ✅
 - `npm run db:import-v1 -- --confirm <db>`: salin 14 tabel public Supabase → lokal dengan `COPY` (ARCHITECTURE D-23); urut induk → anak; **satu transaksi** di tujuan (gagal = ROLLBACK); sumber dibaca READ ONLY dari satu snapshot; bisa diulang — dipakai lagi saat cutover
 - Verifikasi otomatis per tabel: jumlah baris + checksum md5 isi, harus identik
 - Data akun (`auth.users`) ditunda ke Tahap 3
 **Selesai bila:** semua tabel cocok 100% dengan `row-counts.txt` / hitungan langsung.
 **STOP**
 
-## Tahap 3 — Auth V2 ⬜
-- Migrasi `0002_auth.ts`: `app_users`, `user_sessions`; FK `profiles` → `app_users`
-- `src/server/auth/*` (password, session, guard); `proxy.ts` baru (cek cookie)
-- Halaman `/login`, `/register`, `/admin/users` (+ reset password oleh Super Admin), logout
-- `SessionContext` & `ThemeContext` memakai `/api/me` (bukan Supabase)
+## Tahap 3 — Auth V2
+Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
+
+### 3a — Database & inti server 🚧
+- Migrasi `0002_auth.ts`: `app_users`, `user_sessions`; `profiles` dihapus
+- `db:import-v1` mengisi `app_users` dari `profiles` + hash `auth.users` (cek email/username kembar dulu)
+- `src/server/auth/`: `policy.ts`, `password.ts`, `tokens.ts`, `session.ts`, `login.ts` + unit test
+- UI **belum** berubah (V1 masih login lewat Supabase)
+**Selesai bila:** migrasi & impor jalan; `app_users` berisi 4 akun dengan hash `$2a$10$`; `npm test` lolos.
+**STOP**
+
+### 3b — Login, register, proxy ⬜
+- Cookie sesi + `requireUser()`/`requireSuperAdmin()`; `proxy.ts` baru (cek cookie, tanpa Supabase)
+- API `/api/auth/login`, `/api/auth/logout`, `/api/auth/register`, `/api/me` (+ simpan tema)
+- Halaman `/login` (email atau username) & `/register`; `SessionContext` & `ThemeContext` tanpa Supabase
 - Hapus `/forgot-password`, `/auth/callback`, `/auth/reset-password`
-**Selesai bila:** login akun V1 berhasil, approve/reject/role/hapus user jalan, sesi bisa dicabut.
+**Selesai bila:** login akun V1 dengan password lama berhasil, logout, tema tersimpan, halaman terproteksi.
+**STOP**
+
+### 3c — Manajemen user ⬜
+- `/admin/users` + API: approve/reject/aktifkan, ubah role, tambah, hapus, **reset password** (password sementara + wajib ganti)
+- Halaman ganti password (wajib bila `must_change_password`); ganti/reset → sesi lain dicabut
+- Tidak boleh menonaktifkan / menurunkan role / menghapus diri sendiri atau Super Admin terakhir
+**Selesai bila:** semua aksi Manajemen User V1 jalan + reset password.
 **STOP**
 
 ## Tahap 4 — Data layer per domain ⬜

@@ -14,6 +14,9 @@ interface Profile {
   role: "super_admin" | "admin";
   status: "pending" | "active" | "rejected";
   created_at: string;
+  last_login_at: string | null;
+  must_change_password: boolean;
+  locked: boolean;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -60,7 +63,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
       <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6">
         <h3 className="text-sub font-semibold text-heading mb-1">Tambah User Baru</h3>
-        <p className="text-small text-dim mb-4">User langsung aktif tanpa perlu konfirmasi email</p>
+        <p className="text-small text-dim mb-4">User langsung aktif dan wajib mengganti password ini saat login pertama</p>
 
         {error && (
           <div className="text-small text-danger bg-danger/[0.06] border border-danger/20 rounded-xl px-3 py-2.5 mb-4">{error}</div>
@@ -147,6 +150,78 @@ function DeleteModal({ user, onClose, onSuccess }: { user: Profile; onClose: () 
   );
 }
 
+// ── Modal Reset Password ──────────────────────────────────────────────────
+function ResetPasswordModal({ user, onClose, onSuccess }: { user: Profile; onClose: () => void; onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const handleReset = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/users/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Gagal reset password."); return; }
+      setTempPassword(data.password);
+      onSuccess();
+    } catch { setError("Terjadi kesalahan."); }
+    finally { setLoading(false); }
+  };
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(tempPassword); setCopied(true); } catch { /* clipboard diblokir: salin manual */ }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6">
+        <h3 className="text-sub font-semibold text-heading mb-2">Reset Password</h3>
+        <p className="text-base2 text-muted mb-3">
+          <span className="text-heading font-medium">{user.username}</span> ({user.email})
+        </p>
+
+        {tempPassword ? (
+          <>
+            <p className="text-small text-muted mb-2">Password sementara (hanya tampil sekali — berikan langsung ke user):</p>
+            <div className="flex items-center gap-2 mb-3">
+              <code className="flex-1 text-center font-mono text-lead tracking-wider text-heading bg-field border border-line rounded-lg px-3 py-2 select-all">
+                {tempPassword}
+              </code>
+              <button onClick={copy} className="px-3 py-2 rounded-lg text-small font-medium border border-line bg-field text-muted hover:text-heading transition-all">
+                {copied ? "Tersalin" : "Salin"}
+              </button>
+            </div>
+            <p className="text-small text-dim mb-5">User wajib mengganti password saat login. Semua sesi lamanya sudah dikeluarkan dan kunci percobaan login dibuka.</p>
+            <button onClick={onClose} className="w-full px-4 py-2 rounded-xl border border-line bg-field text-muted text-base2 hover:text-heading transition-all">
+              Tutup
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-small text-muted mb-5">Password lama tidak bisa dipakai lagi. Sistem membuat password sementara dan user wajib menggantinya saat login.</p>
+            {error && <p className="text-small text-danger mb-3">{error}</p>}
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-line bg-field text-muted text-base2 hover:bg-field transition-all">
+                Batal
+              </button>
+              <button onClick={handleReset} disabled={loading}
+                className="flex-1 px-4 py-2 rounded-xl bg-warning/15 border border-warning/30 text-warning text-base2 font-semibold hover:bg-warning/25 transition-all disabled:opacity-50">
+                {loading ? "Mereset..." : "Reset password"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -157,6 +232,8 @@ export default function AdminUsersPage() {
   const [actionId, setActionId]   = useState<string | null>(null);
   const [showAdd, setShowAdd]     = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+  const [resetTarget, setResetTarget]   = useState<Profile | null>(null);
+  const [pageError, setPageError]       = useState("");
 
   useEffect(() => {
     if (!sessionLoading && !isSuperAdmin) router.push("/");
@@ -164,8 +241,9 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/users");
-    const json = await res.json();
+    const res = await fetch("/api/admin/users", { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) setPageError(json.error ?? "Gagal memuat daftar user.");
     setUsers(json.data ?? []);
     setLoading(false);
   }, []);
@@ -174,11 +252,20 @@ export default function AdminUsersPage() {
 
   const updateUser = useCallback(async (id: string, patch: Partial<Pick<Profile, "status" | "role">>) => {
     setActionId(id);
-    await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...patch }),
-    });
+    setPageError("");
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...patch }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPageError(data.error ?? "Gagal menyimpan perubahan.");
+      }
+    } catch {
+      setPageError("Tidak bisa terhubung ke server.");
+    }
     await fetchUsers();
     setActionId(null);
   }, [fetchUsers]);
@@ -208,6 +295,13 @@ export default function AdminUsersPage() {
               Tambah User
             </button>
           </div>
+
+          {pageError && (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-danger/20 bg-danger/[0.06] px-4 py-3">
+              <p className="text-small text-danger">{pageError}</p>
+              <button onClick={() => setPageError("")} className="text-small text-danger/70 hover:text-danger" aria-label="Tutup pesan">✕</button>
+            </div>
+          )}
 
           {/* Pending approval */}
           {pending.length > 0 && (
@@ -265,6 +359,12 @@ export default function AdminUsersPage() {
                         {u.username} {isMe && <span className="text-tiny text-accent ml-1">(Anda)</span>}
                       </p>
                       <p className="text-tiny text-dim">{u.email}</p>
+                      {(u.locked || u.must_change_password) && (
+                        <p className="mt-0.5 flex flex-wrap gap-1">
+                          {u.locked && <span className="text-nano font-semibold text-danger bg-danger/10 border border-danger/20 rounded px-1.5 py-px">Terkunci sementara</span>}
+                          {u.must_change_password && <span className="text-nano font-semibold text-warning bg-warning/10 border border-warning/20 rounded px-1.5 py-px">Wajib ganti password</span>}
+                        </p>
+                      )}
                     </div>
                     <span className="text-small text-muted font-mono">{u.nik}</span>
                     <span className="text-small text-muted">{u.role === "super_admin" ? "Super Admin" : "Admin"}</span>
@@ -297,6 +397,15 @@ export default function AdminUsersPage() {
                         </button>
                       )}
                       {!isMe && (
+                        <button onClick={() => setResetTarget(u)} disabled={actionId === u.id}
+                          className="p-1.5 rounded-lg text-warning/60 hover:text-warning hover:bg-warning/10 transition-all disabled:opacity-50"
+                          title="Reset password" aria-label={`Reset password ${u.username}`}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.7 12.3 9.8-9.8" /><path d="m17 6 3 3" /><path d="m14.5 8.5 2 2" />
+                          </svg>
+                        </button>
+                      )}
+                      {!isMe && (
                         <button onClick={() => setDeleteTarget(u)} disabled={actionId === u.id}
                           className="p-1.5 rounded-lg text-danger/50 hover:text-danger hover:bg-danger/10 transition-all disabled:opacity-50" title="Hapus user">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -321,6 +430,9 @@ export default function AdminUsersPage() {
       )}
       {deleteTarget && (
         <DeleteModal user={deleteTarget} onClose={() => setDeleteTarget(null)} onSuccess={fetchUsers} />
+      )}
+      {resetTarget && (
+        <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} onSuccess={fetchUsers} />
       )}
     </div>
   );

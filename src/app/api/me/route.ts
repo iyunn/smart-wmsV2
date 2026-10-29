@@ -38,7 +38,7 @@ export async function GET() {
 const Patch = z.object({ theme: z.enum(["dark", "light"]) });
 
 export async function PATCH(req: Request) {
-  const user = await requireUser();
+  const user = await requireUser({ allowMustChange: true });
   if (user instanceof Response) return user;
 
   const parsed = Patch.safeParse(await req.json().catch(() => null));

@@ -7,12 +7,19 @@
  * V2 (Tahap 3b): sumber data GET /api/me (auth lokal, cookie httpOnly), bukan Supabase.
  * Bentuk nilai context SAMA dengan V1 (user, profile, loading, signOut, isSuperAdmin,
  * isAdmin) sehingga Topbar, Sidebar, Daftar SJ, dan Manajemen User tidak perlu diubah.
+ *
+ * Tahap 3c: akun yang wajib ganti password (dibuat/di-reset Super Admin) otomatis diarahkan
+ * ke /ganti-password dari halaman mana pun. Server juga menolak API data untuk akun ini.
  */
 
 import {
   createContext, useContext, useEffect, useState, useCallback,
   type ReactNode,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+/** Halaman yang boleh dibuka walau akun wajib ganti password. */
+const ALLOWED_WHEN_MUST_CHANGE = ["/ganti-password", "/login", "/register"];
 
 export interface UserProfile {
   id: string;
@@ -75,6 +82,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const pathname = usePathname();
+  const router = useRouter();
+  useEffect(() => {
+    if (profile?.mustChangePassword && !ALLOWED_WHEN_MUST_CHANGE.includes(pathname)) {
+      router.replace("/ganti-password");
+    }
+  }, [profile, pathname, router]);
 
   const signOut = useCallback(async () => {
     try {

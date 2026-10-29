@@ -50,6 +50,7 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-21** | Parser tipe `pg` disamakan dengan bentuk data V1: `int8` & `numeric` → `number`, `date` → string `YYYY-MM-DD`, `timestamp` (tanpa zona) → string `YYYY-MM-DDTHH:MM:SS` seperti PostgREST; `timestamptz` tetap `Date`. Opsi `kysely-codegen` di `.kysely-codegenrc.json` mengikuti | Kontrak API V1 tetap (D-08); default `pg` menganggap `date`/`timestamp` sebagai jam lokal proses Node (WIB) sehingga bergeser saat jadi JSON | Default `pg` (string untuk int8/numeric, Date untuk date/timestamp) |
 | **D-22** | Database dikunci ke zona waktu **UTC** (`ALTER DATABASE ... SET timezone`, di migrasi 0001) | Sama dengan Supabase. Tiga kolom V1 bertipe `timestamp` tanpa zona (`assets_raw.uploaded_at`, `assets_clean.created_at`, `classification_logs.processed_at`) berisi jam UTC; installer PostgreSQL Windows memakai zona OS (WIB) sehingga `now()` akan menyimpan jam lokal | Mengubah tiga kolom itu ke `timestamptz` (lebih benar, tapi mengubah bentuk data API → kandidat improvement setelah paritas) |
 | **D-23** | Impor data V1 (`scripts/import-v1.ts`) memakai **`COPY` format teks PostgreSQL** via `pg-copy-streams`: sumber dalam transaksi READ ONLY + REPEATABLE READ, tujuan dalam satu transaksi (TRUNCATE → COPY → verifikasi jumlah baris + checksum md5 per tabel → COMMIT). Wajib `--confirm <nama_db>` | Nilai pindah persis tanpa konversi tipe di JavaScript (array `jsonb`, `numeric` presisi tinggi, `timestamp`); satu snapshot konsisten; gagal = database lokal utuh; aman diulang saat cutover | `SELECT` lalu `INSERT` lewat JS (rawan salah konversi jsonb/numeric/timezone); `pg_dump` + `pg_restore` data (tidak ada verifikasi & tidak bisa menolak beda skema) |
+| **D-24** | Aturan yang bergantung pada beberapa baris (mis. "Super Admin aktif terakhir") dicek dalam transaksi dengan **satu** `SELECT ... ORDER BY id FOR UPDATE` yang mengunci semua baris terkait sekaligus | Urutan kunci selalu sama → tidak deadlock; transaksi kedua menunggu lalu melihat kondisi terbaru. Terbukti: versi dua-query (kunci target dulu, lalu Super Admin lain) deadlock 4 dari 6 percobaan | Cek di UI saja; dua query `FOR UPDATE` terpisah |
 
 ## 3. Struktur Folder (target V2)
 
@@ -111,6 +112,10 @@ export async function GET(req: Request) {
 }
 ```
 
+### Test
+- Unit test (`*.test.ts`) memakai **import relatif** — Vitest belum dikonfigurasi alias `@/`.
+- Logika yang menyentuh database diuji dengan skrip integrasi terhadap database dev, bukan Vitest.
+
 ### Error & pesan
 - Pesan error ke user dalam Bahasa Indonesia, memberi langkah berikutnya (STYLEGUIDE §10).
 - Error constraint DB diterjemahkan: unique → "Nama ini sudah dipakai", foreign key → "Masih dipakai, nonaktifkan saja".
@@ -145,6 +150,15 @@ Aturan (semua angka di `src/server/auth/policy.ts`):
   (seperti V1). User tidak dikenal tetap menjalankan satu bcrypt (waktu respons sama).
 - 5 kali gagal berturut-turut → akun dikunci 10 menit (atomik di database).
 - bcrypt cost 12; hash lama cost 10 (Supabase) dinaikkan otomatis saat login berhasil. Password 8 karakter – 72 byte.
+
+Manajemen akun (`src/server/modules/users/service.ts`, Tahap 3c):
+- Akun dibuat Super Admin → langsung `active` + `must_change_password`. Register publik → `pending`.
+- Super Admin tidak bisa mengubah role/status, me-reset, atau menghapus akunnya sendiri.
+- Super Admin aktif terakhir tidak bisa diturunkan/dinonaktifkan/dihapus (D-24).
+- Reset password → password sementara 12 karakter acak (tampil sekali), buka kunci, cabut semua sesi.
+- `must_change_password` → `requireUser()` menolak 403 `MUST_CHANGE_PASSWORD`, kecuali route dengan
+  `requireUser({ allowMustChange: true })` (ganti password, tema); UI diarahkan ke `/ganti-password`.
+- Ganti password sendiri → wajib password sekarang; sesi lain dicabut, sesi yang dipakai tetap.
 
 ## 6. Keamanan
 

@@ -3586,3 +3586,39 @@ halaman lupa-password 404, login password lama V1 (username huruf besar) → coo
 503, register validasi + kembar email/username (beda huruf) 409 + akun baru pending 403, logout,
 akun dinonaktifkan → sesi aktif langsung 401 + cookie basi dihapus, 5× gagal → 423 dengan jam WIB.
 Guard `?next=` diuji: `//evil.com`, `/\evil.com`, `https://…`, `javascript:` → `/`.
+
+# 30 Oktober 2026 — Tahap 3b selesai, Tahap 3c (manajemen user & ganti password)
+
+### Tahap 3b ✅
+Commit `a66cbd1`. Di PC dev: login username/email dengan password lama, logout, tema, halaman SJ
+jalan. Catatan: `EADDRINUSE :3001` saat `npm run dev` = server dev lain masih jalan di terminal lain
+(bukan error kode; cek `netstat -ano | grep :3001`, matikan `taskkill //PID <pid> //F`).
+
+### Tahap 3c
+- **`src/server/modules/users/`**: `schemas.ts` (zod username/NIK/email/password — dipakai register
+  & Manajemen User), `temp-password.ts` (12 karakter acak tanpa karakter mirip, format 4-4-4),
+  `service.ts` (list/create/update/delete/resetPassword/changeOwnPassword + semua aturan pengaman).
+- **API**: `/api/admin/users` lengkap (kontrak request sama V1, ditambah validasi zod & pesan error),
+  `POST /api/admin/users/reset-password`, `POST /api/me/password`.
+- **`requireUser({ allowMustChange })`**: akun wajib ganti password ditolak 403 `MUST_CHANGE_PASSWORD`.
+- **UI**: `/ganti-password` (gaya halaman login; banner bila wajib), ikon kunci di Topbar, pengalihan
+  otomatis di `SessionContext`, login langsung ke `/ganti-password` bila wajib. Manajemen User:
+  tombol reset password (modal tampilkan password sementara sekali + salin), label "Terkunci
+  sementara" & "Wajib ganti password", banner error (V1 menelan error PATCH diam-diam).
+- Akun yang dibuat Super Admin sekarang **wajib ganti password** saat login pertama (V1: tidak).
+
+[BUG DITEMUKAN & DIPERBAIKI SEBELUM RILIS] Deadlock pada aturan "Super Admin terakhir". Versi
+pertama mengunci baris target dulu, lalu baris Super Admin lain — dua Super Admin yang saling
+menurunkan role bersamaan mengunci dengan urutan bersilangan. Uji 6× transaksi bersamaan:
+`deadlock detected` 4 kali (PostgreSQL membatalkan satu → error 500). Fix (D-24): satu query
+`... where id = target or (role = super_admin and status = active) order by id for update`.
+Uji ulang 15× (role↔role, nonaktif↔hapus, hapus↔hapus): 0 deadlock, selalu tepat satu berhasil +
+satu 409, Super Admin aktif tidak pernah habis.
+[GOTCHA] Vitest belum mengenal alias `@/` → test pakai import relatif (dicatat di ARCHITECTURE).
+
+[VERIFIKASI] `tsc` 0 error; Vitest 9/9 (tambah 2 test password sementara: format, tanpa karakter
+mirip, 1000× tanpa kembar); `next build` sukses; 43 uji HTTP Manajemen User & ganti password lolos
+(self-protection, approve → bisa login, admin biasa 403, nonaktif → sesi putus, reset → sesi lama
+dicabut + kunci dibuka + 403 MUST_CHANGE_PASSWORD sampai ganti, ganti password: salah/pendek/sama
+ditolak, sesi lain dikeluarkan, tambah/kembar/tidak valid/hapus). Uji regresi 3b: 32/33 — satu
+yang berubah memang disengaja (aksi Manajemen User dulu 503 sementara, sekarang berfungsi).

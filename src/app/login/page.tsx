@@ -37,7 +37,8 @@ export default function LoginPage() {
         return;
       }
       // Muat ulang penuh supaya SessionContext & tema membaca sesi baru.
-      window.location.assign(nextPath());
+      // Akun yang dibuat/di-reset Super Admin wajib ganti password dulu.
+      window.location.assign(data.mustChangePassword ? "/ganti-password" : nextPath());
     } catch {
       setError("Tidak bisa terhubung ke server. Periksa jaringan lalu coba lagi.");
     } finally {

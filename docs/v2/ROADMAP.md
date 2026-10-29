@@ -19,8 +19,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 1a | Setup repo V2 (clone + remote baru + dokumen) | V2 | ✅ |
 | 1b | Fondasi V2 (PostgreSQL dev, dependency, `src/server/db`) | V2 | ✅ |
 | 2a | Snapshot skema & jumlah baris Supabase | V2 | ✅ |
-| 2b | Migrasi `0001_baseline` | V2 | 🚧 |
-| 2c | Impor data V1 + pembanding jumlah baris | V2 | ⬜ |
+| 2b | Migrasi `0001_baseline` | V2 | ✅ |
+| 2c | Impor data V1 + pembanding jumlah baris | V2 | 🚧 |
 | 3 | Auth V2 | V2 | ⬜ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
 | 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
@@ -83,7 +83,7 @@ Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan
 **Selesai bila:** dua file snapshot ter-push ke repo.
 **STOP**
 
-### 2b — Migrasi baseline 🚧
+### 2b — Migrasi baseline ✅
 - `src/server/db/migrations/0001_baseline.ts` dari snapshot: tabel, constraint, index, function yang dipakai
 - Dibuang: policy & `ENABLE ROW LEVEL SECURITY`, grant role Supabase (`anon`/`authenticated`/`service_role`), FK & trigger ke `auth.*` (ditangani Tahap 3), function `rls_auto_enable`; `extensions.uuid_generate_v4()` → `gen_random_uuid()`
 - Database dikunci UTC (D-22); parser `timestamp` tanpa zona (D-21)
@@ -91,9 +91,9 @@ Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan
 **Selesai bila:** `npm run db:migrate` membuat semua tabel di `smartwms_dev`; `types.ts` berisi semua tabel V1.
 **STOP**
 
-### 2c — Impor data ⬜
-- `npm run db:import-v1`: salin semua tabel public Supabase → lokal (urut sesuai FK, batch, satu transaksi per tabel); bisa diulang (kosongkan dulu) — dipakai lagi saat cutover
-- Pembanding jumlah baris sumber vs tujuan otomatis di akhir impor
+### 2c — Impor data 🚧
+- `npm run db:import-v1 -- --confirm <db>`: salin 14 tabel public Supabase → lokal dengan `COPY` (ARCHITECTURE D-23); urut induk → anak; **satu transaksi** di tujuan (gagal = ROLLBACK); sumber dibaca READ ONLY dari satu snapshot; bisa diulang — dipakai lagi saat cutover
+- Verifikasi otomatis per tabel: jumlah baris + checksum md5 isi, harus identik
 - Data akun (`auth.users`) ditunda ke Tahap 3
 **Selesai bila:** semua tabel cocok 100% dengan `row-counts.txt` / hitungan langsung.
 **STOP**

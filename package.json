@@ -8,7 +8,8 @@
     "start": "next start",
     "db:migrate": "node --env-file=.env.local --import tsx src/server/db/migrate.ts",
     "db:codegen": "kysely-codegen",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "db:import-v1": "node --env-file=.env.local --import tsx scripts/import-v1.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
@@ -20,6 +21,7 @@
     "next": "16.2.4",
     "pdfjs-dist": "^3.11.174",
     "pg": "^8.23.1",
+    "pg-copy-streams": "^7.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
@@ -31,6 +33,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
+    "@types/pg-copy-streams": "^1.2.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-pdf": "^6.2.0",

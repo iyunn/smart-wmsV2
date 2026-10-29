@@ -3478,3 +3478,38 @@ Pelajaran: kode yang menyentuh path file harus memakai `pathToFileURL` / `path.r
 mengandalkan format path Linux — pengembangan & produksi V2 sama-sama Windows.
 Catatan: `show timezone` di PC dev sebelum migrasi = `Asia/Bangkok` (zona OS) — konfirmasi bahwa
 penguncian UTC (D-22) memang diperlukan.
+
+# 30 Oktober 2026 — Tahap 2b selesai, Tahap 2c (impor data V1)
+
+### Tahap 2b ✅
+Ter-push di commit `26c60ee` (setelah fix `migrate.ts` untuk Windows). `types.ts` di repo identik
+dengan hasil codegen sandbox (14 tabel).
+
+### Tahap 2c — `scripts/import-v1.ts` (D-23)
+`npm run db:import-v1 -- --confirm smartwms_dev`
+- Cek skema dulu: daftar tabel & kolom Supabase vs lokal harus sama; beda = ditolak sebelum menyentuh data.
+- Sumber: `begin isolation level repeatable read read only` → semua tabel dari snapshot yang sama.
+- Tujuan: satu transaksi — TRUNCATE 14 tabel → `COPY` per tabel (induk → anak) → verifikasi → COMMIT.
+- Verifikasi per tabel: `count(*)` + `md5(string_agg(row(...)::text order by ...))` di kedua sisi,
+  kedua sesi diset UTC supaya teks timestamptz identik.
+- Kenapa COPY: nilai pindah sebagai teks PostgreSQL apa adanya. Kalau lewat JS (`select` → `insert`),
+  array `jsonb` dikirim `pg` sebagai array Postgres `{...}` (salah), `numeric` bisa kehilangan presisi,
+  dan `timestamp` bisa bergeser zona.
+- Dependency baru: `pg-copy-streams` (+ `@types/pg-copy-streams`).
+
+[BUG FIX sebelum rilis] Skrip menggantung bila COPY ke lokal gagal di tengah. Root cause: koneksi
+SUMBER masih dalam mode COPY OUT, sehingga `ROLLBACK` di sumber mengantre tanpa batas. Fix: sumber
+tidak di-ROLLBACK lewat query, cukup koneksinya diputus (`closeQuietly`: `end()` dengan batas 3 detik,
+lalu socket dihancurkan). Aman karena transaksi sumber READ ONLY.
+[GOTCHA] Uji constraint gagal pertama kali tidak valid: `add constraint ... check` ditolak karena data
+lama melanggarnya — perlu `NOT VALID` agar hanya baris baru yang dicek.
+
+[VERIFIKASI] Sandbox: sumber = database pembanding berisi skema Supabase asli + data uji 27.388 baris
+dengan kasus sulit (teks berisi tab/baris baru/backslash/kutip/emoji, array & objek `jsonb`, `numeric`
+20 digit, bigint 9e12, `timestamp` mikrodetik, `timestamptz` +07, NULL). Hasil:
+- impor penuh & diulang: 14 tabel identik (jumlah + checksum), ±0,6 detik
+- tanpa `--confirm`: ditolak · skema beda (kolom baru di sumber): ditolak · DB lokal belum dimigrasi: ditolak
+- gagal di tabel ke-9 (constraint uji): keluar dengan error, data lokal sebelum impor UTUH (penanda
+  tetap ada, lpp_raw tetap 5.443), 0 sesi tertinggal di sumber
+- dibaca lewat `createDb` (proses Node TZ Asia/Jakarta): jsonb = array, teks utuh, int8 = number,
+  `timestamp` = string jam UTC

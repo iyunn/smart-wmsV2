@@ -2,11 +2,8 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-client/client";
 
 export default function RegisterPage() {
-  const supabase = createClient();
-
   const [form, setForm] = useState({
     username: "", nik: "", email: "", password: "", confirm: "",
   });
@@ -33,28 +30,25 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username, nik },  // diteruskan ke trigger handle_new_user
-        },
+      // Akun dibuat berstatus pending — wajib di-approve Super Admin (sama dengan V1).
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), nik: nik.trim(), email: email.trim(), password }),
       });
-
-      if (signUpError) {
-        setError(signUpError.message === "User already registered"
-          ? "Email sudah terdaftar."
-          : signUpError.message);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Pendaftaran gagal. Coba lagi.");
         return;
       }
 
       setSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan.");
+    } catch {
+      setError("Tidak bisa terhubung ke server. Periksa jaringan lalu coba lagi.");
     } finally {
       setLoading(false);
     }
-  }, [form, supabase]);
+  }, [form]);
 
   if (success) {
     return (

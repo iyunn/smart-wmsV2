@@ -3545,3 +3545,44 @@ reset hitungan gagal, status pending tidak bocor saat password salah, waktu resp
 ≈ password salah (348 vs 332 ms), token asli tidak tersimpan, sliding expiry, sesi kedaluwarsa
 dihapus, akun dinonaktifkan → sesi langsung tidak berlaku, cabut semua sesi kecuali sesi sekarang.
 `tsc --noEmit` 0 error; codegen 15 tabel.
+
+# 30 Oktober 2026 — Tahap 3a selesai, Tahap 3b (login, register, proxy tanpa Supabase)
+
+### Tahap 3a ✅
+Commit `a521d53`. Di PC dev: `0002_auth` jalan, 4 akun V1 masuk `app_users` dengan hash `$2a$10$`.
+
+### Tahap 3b
+- **`proxy.ts` baru** (tanpa Supabase): cek optimistis cookie `smartwms_session` berbentuk sah.
+  Tanpa cookie → halaman di-redirect `/login?next=<path>`, API → 401 JSON. Publik: `/login`,
+  `/register`, `/api/auth/*`, `/api/me`.
+  Riset: di Next.js 16 proxy selalu runtime Node.js dan dianjurkan tanpa query database
+  (jalan di setiap request termasuk prefetch) → D-06 dipertahankan.
+- **Server**: `constants.ts` (nama cookie & pola token, tanpa import — dipakai proxy), `cookies.ts`
+  (httpOnly, SameSite=Lax, Secure via env), `guard.ts` (`requireUser`, `requireSuperAdmin`),
+  `request-meta.ts` (user-agent/IP untuk sesi).
+- **API**: `POST /api/auth/login` (pesan: salah 401, pending/ditolak 403, terkunci 423 + jam buka WIB),
+  `POST /api/auth/logout`, `POST /api/auth/register` (pending, role admin, username `[A-Za-z0-9._-]`
+  3–32, unik tanpa beda huruf → 409), `GET/PATCH /api/me` (profil bentuk V1 + simpan tema; GET
+  memperpanjang cookie mengikuti sliding expiry dan menghapus cookie basi).
+- **Client**: `SessionContext` memakai `/api/me` — bentuk nilai context sama dengan V1 (Topbar,
+  Sidebar, Daftar SJ, Manajemen User tidak diubah). `ThemeContext` simpan tema lewat `PATCH /api/me`.
+  Halaman login: email **atau** username, `?next=` hanya path internal (anti open redirect), muat
+  ulang penuh setelah login. Halaman register memanggil API baru.
+- **Dihapus**: `/forgot-password`, `/auth/callback`, `/auth/reset-password`,
+  `src/lib/supabase-client/{client,server,middleware}.ts` (tidak dipakai lagi). Paket `@supabase/ssr`
+  dihapus di Tahap 4f.
+- **Sementara**: `/api/admin/users` membaca daftar dari `app_users`; aksi ubah → 503 sampai 3c.
+
+[KEPUTUSAN] Route data V1 (`/api/sj`, dst.) masih memakai Supabase dan belum memanggil
+`requireUser()` — saat ini hanya dijaga proxy (cookie berbentuk sah). Aman selama V2 belum dipakai
+pengguna; ditutup bertahap di Tahap 4 dan jadi syarat cutover (PRD §7).
+[GOTCHA] `/api/me` sengaja publik di proxy: kalau ikut dijaga, cookie basi membuat proxy meloloskan
+halaman tapi `/api/me` gagal → client redirect ke /login → loop. `/api/me` yang menghapus cookie basi.
+
+[VERIFIKASI] `tsc` 0 error, Vitest 7/7, `next build` sukses (Proxy terdeteksi). 33 uji HTTP pada
+server produksi (`next start`) dengan akun tiruan: redirect & 401 tanpa login, cookie palsu ditolak,
+halaman lupa-password 404, login password lama V1 (username huruf besar) → cookie HttpOnly path=/,
+`/api/me` bentuk V1, tema tersimpan/divalidasi, Manajemen User super admin 200 / admin 403 / aksi
+503, register validasi + kembar email/username (beda huruf) 409 + akun baru pending 403, logout,
+akun dinonaktifkan → sesi aktif langsung 401 + cookie basi dihapus, 5× gagal → 423 dengan jam WIB.
+Guard `?next=` diuji: `//evil.com`, `/\evil.com`, `https://…`, `javascript:` → `/`.

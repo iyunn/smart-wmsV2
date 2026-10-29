@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { SESSION_TOKEN_PATTERN } from "./constants";
 
 // Token sesi: 32 byte acak (256 bit) → base64url di cookie. Database hanya menyimpan
 // SHA-256-nya, jadi isi tabel user_sessions tidak bisa dipakai untuk login.
@@ -13,5 +14,5 @@ export function hashSessionToken(token: string): string {
 
 /** Bentuk token yang sah: 43 karakter base64url. Menolak input aneh sebelum menyentuh database. */
 export function isWellFormedToken(token: unknown): token is string {
-  return typeof token === "string" && /^[A-Za-z0-9_-]{43}$/.test(token);
+  return typeof token === "string" && SESSION_TOKEN_PATTERN.test(token);
 }

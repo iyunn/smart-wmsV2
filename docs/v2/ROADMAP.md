@@ -21,8 +21,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 2a | Snapshot skema & jumlah baris Supabase | V2 | ✅ |
 | 2b | Migrasi `0001_baseline` | V2 | ✅ |
 | 2c | Impor data V1 + pembanding jumlah baris | V2 | ✅ |
-| 3a | Auth — database & inti server | V2 | 🚧 |
-| 3b | Auth — login, register, proxy, sesi di UI | V2 | ⬜ |
+| 3a | Auth — database & inti server | V2 | ✅ |
+| 3b | Auth — login, register, proxy, sesi di UI | V2 | 🚧 |
 | 3c | Auth — manajemen user & ganti password | V2 | ⬜ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
 | 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
@@ -103,7 +103,7 @@ Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan
 ## Tahap 3 — Auth V2
 Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
 
-### 3a — Database & inti server 🚧
+### 3a — Database & inti server ✅
 - Migrasi `0002_auth.ts`: `app_users`, `user_sessions`; `profiles` dihapus
 - `db:import-v1` mengisi `app_users` dari `profiles` + hash `auth.users` (cek email/username kembar dulu)
 - `src/server/auth/`: `policy.ts`, `password.ts`, `tokens.ts`, `session.ts`, `login.ts` + unit test
@@ -111,11 +111,12 @@ Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
 **Selesai bila:** migrasi & impor jalan; `app_users` berisi 4 akun dengan hash `$2a$10$`; `npm test` lolos.
 **STOP**
 
-### 3b — Login, register, proxy ⬜
+### 3b — Login, register, proxy 🚧
 - Cookie sesi + `requireUser()`/`requireSuperAdmin()`; `proxy.ts` baru (cek cookie, tanpa Supabase)
 - API `/api/auth/login`, `/api/auth/logout`, `/api/auth/register`, `/api/me` (+ simpan tema)
 - Halaman `/login` (email atau username) & `/register`; `SessionContext` & `ThemeContext` tanpa Supabase
-- Hapus `/forgot-password`, `/auth/callback`, `/auth/reset-password`
+- Hapus `/forgot-password`, `/auth/callback`, `/auth/reset-password`, `src/lib/supabase-client/{client,server,middleware}.ts`
+- `/api/admin/users` sementara: daftar user dari `app_users` (read-only); aksi ubah → 503 sampai 3c
 **Selesai bila:** login akun V1 dengan password lama berhasil, logout, tema tersimpan, halaman terproteksi.
 **STOP**
 
@@ -128,6 +129,8 @@ Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
 
 ## Tahap 4 — Data layer per domain ⬜
 Setiap sub-tahap: route diganti ke Kysely, **kontrak API sama** (ARCHITECTURE D-08), diuji di halaman terkait. **STOP di setiap sub-tahap.**
+
+**Wajib di setiap route yang dimigrasi:** `requireUser()` (atau `requireSuperAdmin()`) di baris pertama handler. Sampai route dimigrasi, route data V1 hanya dijaga proxy (cek cookie) — celah ini harus tertutup sebelum cutover (PRD §7).
 
 | Sub | Domain | Route |
 |---|---|---|

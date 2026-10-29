@@ -3,7 +3,7 @@
 /**
  * ThemeContext — kelola tema dark/light untuk seluruh app.
  *
- * Sumber kebenaran: kolom `theme` di profiles (ikut akun user).
+ * Sumber kebenaran: kolom `theme` di app_users (ikut akun user), disimpan lewat PATCH /api/me.
  * Cache: localStorage 'swms-theme' untuk apply instan tanpa flash (FOUC)
  * sebelum profile ke-fetch dari DB.
  *
@@ -19,7 +19,6 @@ import {
   createContext, useContext, useEffect, useState, useCallback, useRef,
   type ReactNode,
 } from "react";
-import { createClient } from "@/lib/supabase-client/client";
 import { useSession } from "@/components/SessionContext";
 
 export type Theme = "dark" | "light";
@@ -47,7 +46,6 @@ function applyThemeClass(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const supabase = createClient();
   const { user, profile } = useSession();
   const [theme, setThemeState] = useState<Theme>("dark");
   const dbSyncedRef = useRef(false);
@@ -94,10 +92,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     // Simpan ke DB (ikut akun antar-device) — best-effort
     if (user?.id) {
-      const { error } = await supabase.from("profiles").update({ theme: next }).eq("id", user.id);
-      if (error) console.warn("[theme] gagal simpan ke DB:", error.message);
+      try {
+        const res = await fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ theme: next }),
+        });
+        if (!res.ok) console.warn("[theme] gagal simpan ke DB:", res.status);
+      } catch (err) {
+        console.warn("[theme] gagal simpan ke DB:", err);
+      }
     }
-  }, [supabase, user]);
+  }, [user]);
 
   const setTheme = useCallback((next: Theme) => {
     userTouchedRef.current = true;

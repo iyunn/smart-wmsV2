@@ -1,74 +1,49 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-client/client";
+
+/** Tujuan setelah login dari ?next=… — hanya path internal (cegah open redirect ke situs lain). */
+function nextPath(): string {
+  if (typeof window === "undefined") return "/";
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
-
-  const [email, setEmail]       = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
   const handleLogin = useCallback(async () => {
     setError("");
-    if (!email || !password) {
-      setError("Email dan password wajib diisi.");
+    if (!identifier.trim() || !password) {
+      setError("Email/username dan password wajib diisi.");
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Status akun (pending/ditolak) & kunci percobaan dicek di server — pesan dari API.
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
-
-      if (signInError) {
-        setError(signInError.message === "Invalid login credentials"
-          ? "Email atau password salah."
-          : signInError.message);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Gagal masuk. Coba lagi.");
         return;
       }
-
-      // Cek status akun di profiles
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("status, role")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (!profile) {
-        setError("Profil tidak ditemukan. Hubungi administrator.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.status === "pending") {
-        setError("Akun Anda masih menunggu persetujuan Super Admin.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (profile.status === "rejected") {
-        setError("Akun Anda ditolak. Hubungi administrator.");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Active → masuk
-      router.push("/");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan.");
+      // Muat ulang penuh supaya SessionContext & tema membaca sesi baru.
+      window.location.assign(nextPath());
+    } catch {
+      setError("Tidak bisa terhubung ke server. Periksa jaringan lalu coba lagi.");
     } finally {
       setLoading(false);
     }
-  }, [email, password, supabase, router]);
+  }, [identifier, password]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#080e18] px-4">
@@ -94,7 +69,7 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-2xl border border-white/[0.06] bg-[#111827] p-6">
           <h2 className="text-[15px] font-semibold text-white mb-1">Masuk ke akun Anda</h2>
-          <p className="text-[12px] text-white/40 mb-5">Gunakan email dan password yang terdaftar</p>
+          <p className="text-[12px] text-white/40 mb-5">Gunakan email atau username dan password yang terdaftar</p>
 
           {error && (
             <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-3 py-2.5 mb-4">
@@ -107,13 +82,16 @@ export default function LoginPage() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-[11px] font-medium text-white/50 mb-1.5">Email</label>
+              <label className="block text-[11px] font-medium text-white/50 mb-1.5">Email atau username</label>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleLogin()}
-                placeholder="nama@perusahaan.com"
+                placeholder="nama@perusahaan.com atau username"
                 className="w-full bg-white/[0.04] border border-white/[0.08] text-white/80 text-[13px] placeholder:text-slate-600 rounded-lg px-3 py-2.5 focus:outline-none focus:border-cyan-500/50 transition-all"
               />
             </div>
@@ -122,6 +100,7 @@ export default function LoginPage() {
               <label className="block text-[11px] font-medium text-white/50 mb-1.5">Password</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleLogin()}
@@ -130,11 +109,9 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors">
-                Lupa password?
-              </Link>
-            </div>
+            <p className="text-right text-[11px] text-white/40">
+              Lupa password? Minta Super Admin mereset-nya.
+            </p>
 
             <button
               onClick={handleLogin}

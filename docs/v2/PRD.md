@@ -139,6 +139,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 ## 7. Kriteria Cutover (Definition of Done V2.0)
 
 - [ ] Semua modul §5.B lolos checklist UAT di server lokal
+- [ ] Setiap Route Handler `/api/*` (kecuali login/register/logout/me) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode
 - [ ] Jumlah baris semua tabel identik dengan Supabase pada saat freeze
 - [ ] Semua akun bisa login (atau sudah di-reset Super Admin)
 - [ ] Restore dari backup berhasil diuji minimal 1 kali

@@ -1,0 +1,10 @@
+{
+  "dialect": "postgres",
+  "envFile": ".env.local",
+  "url": "env(DATABASE_URL_OWNER)",
+  "outFile": "src/server/db/types.ts",
+  "excludePattern": "kysely_migration*",
+  "numericParser": "number",
+  "dateParser": "string",
+  "typeMapping": { "int8": "number" }
+}

@@ -1,195 +1,188 @@
-# SmartWMS — Chat Rules
+# SmartWMS V2 — Chat Rules
 > Berlaku untuk semua sesi pengembangan SmartWMS antara Fillian & Claude.
-> Terakhir diupdate: 18 Juni 2026
+> Terakhir diupdate: 30 Oktober 2026 (repo baru `smart-wmsV2`, development di PC lokal)
 >
-> **Untuk AI baru / sesi baru**: baca file ini + `docs/project_context.md` dari repo
-> sebelum mulai apapun. Dua file itu cukup untuk orient penuh tanpa perlu tanya-tanya ke user.
+> **Untuk AI baru / sesi baru**: baca file ini dulu, lalu `docs/v2/ROADMAP.md` (tahap aktif).
+> Itu cukup untuk orient penuh tanpa perlu tanya-tanya ke user.
+
+---
+
+## 0. Dua Repo
+
+| | V1 (produksi sekarang) | V2 (sedang dibangun) |
+|---|---|---|
+| Repo | `github.com/iyunn/smart-warehouse-management-system` | **`github.com/iyunn/smart-wmsV2`** |
+| Stack | Next.js + Supabase + Vercel | Next.js + PostgreSQL 18 lokal + Kysely, PC server di LAN kantor |
+| Status | Pemeliharaan: hotfix & bug saja | Semua pengembangan baru |
+| Dokumen utama | `docs/project_context.md` (repo V1) | `docs/v2/PRD.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `STYLEGUIDE.md` |
+
+Repo V2 diawali dari clone repo V1 beserta histori git (ARCHITECTURE D-14).
+Tag **`v1.0-cloud-ta`** di repo V1 = versi Tugas Akhir; jangan dihapus.
 
 ---
 
 ## 1. Session Startup Protocol
 
-Di awal setiap sesi baru, **wajib baca `docs/project_context.md` via curl terlebih dahulu**
-sebelum mengerjakan apapun:
+Di awal setiap sesi, baca dokumen via curl sebelum mengerjakan apa pun:
 
 ```bash
-curl https://raw.githubusercontent.com/iyunn/smart-warehouse-management-system/main/docs/project_context.md
+R=https://raw.githubusercontent.com/iyunn/smart-wmsV2/main
+curl $R/docs/chat-rule.md
+curl $R/docs/v2/ROADMAP.md          # selalu: tahap aktif & statusnya
+curl $R/docs/v2/ARCHITECTURE.md     # bila menyentuh kode / keputusan teknis
+curl $R/docs/v2/PRD.md              # bila menyentuh scope
+curl $R/docs/v2/STYLEGUIDE.md       # bila menyentuh UI
+curl $R/docs/project_context.md     # detail fitur V1 (sampai cutover isinya masih V1)
 ```
 
-File ini berisi current state sistem lengkap: fitur yang sudah ada, schema DB,
-file structure, known issues, dan next priorities. Ini cara paling efisien untuk
-orient tanpa harus nanya ke user atau baca banyak file.
+Kerja hotfix V1 → baca dari repo V1 (`.../smart-warehouse-management-system/main/...`).
 
 ---
 
 ## 2. Output & Git Workflow
 
-- Claude **hanya generate file** untuk di-download/apply manual via VS Code atau Codespace.
-- **Fillian yang menjalankan semua git command** (`git add`, `commit`, `push`) — Claude cukup berikan commit message.
-- Format commit message: **1 baris judul + bullets ringkas** (tidak perlu verbose).
+- Claude **hanya generate file** untuk di-download dan di-apply manual oleh Fillian di PC lokal (VS Code).
+- **Fillian yang menjalankan semua git command** (`add`, `commit`, `push`, `tag`) — Claude cukup berikan perintah & commit message.
+- Perintah terminal ditulis untuk **bash MSYS2 (UCRT64)** — terminal yang dipakai Fillian. Path gaya
+  `/d/BABAYAGA/...` (bukan `D:\...`); perintah PowerShell dipanggil lewat `powershell.exe -NoProfile -Command '...'`.
+- Format commit message: **1 baris judul + bullets ringkas**. Prefix: `feat`, `fix`, `refactor`, `docs`, `chore`, `security`; sertakan tahap, mis. `feat(v2-3): auth sendiri`.
+- Selalu sebut **repo tujuan** (V1 atau V2) untuk setiap paket file.
+- Banyak file sekaligus → dikirim sebagai **zip berstruktur path repo**, di-extract di root repo:
+  `powershell.exe -NoProfile -Command 'Expand-Archive -Force "$env:USERPROFILE\Downloads\<nama>.zip" -DestinationPath .'`
 - Output file selalu disajikan dalam tabel:
 
   | File Generated | Lokasi di Repo | Status |
   |---|---|---|
-  | `NamaFile.tsx` | `src/path/ke/file.tsx` | new / replace |
+  | `NamaFile.tsx` | `src/path/ke/file.tsx` | new / replace / delete |
 
 ---
 
-## 3. Pola Kerja: Present → Test → Lanjut
+## 3. Pola Kerja: Tahap → Present → Test → Lanjut
 
-Claude **tidak boleh langsung lanjut ke langkah berikutnya** tanpa konfirmasi dari Fillian.
-Polanya selalu:
+Pekerjaan besar **dipecah per tahap kecil yang berdiri sendiri** (`docs/v2/ROADMAP.md`),
+supaya kalau sesi terputus di tengah, tidak ada kerja yang hilang. Polanya:
 
-1. Claude generate & present file
-2. Fillian apply ke repo, test di browser/lokal
-3. Fillian laporan hasilnya ("udah jalan bro" / "ada bug X")
-4. Baru Claude lanjut ke langkah berikutnya
+1. Claude mengerjakan **satu tahap**, generate & present file
+2. Claude **STOP** — tidak lanjut ke tahap berikutnya
+3. Fillian apply, test di PC lokal, push
+4. Fillian laporan hasilnya ("udah jalan bro" / "ada bug X")
+5. Claude update status di ROADMAP + entry journal, lalu baru lanjut
 
 Kalau Fillian bilang **"sudah aku apply dan commit"** sebelum lanjut edit file yang sama,
-Claude **wajib re-fetch** file tersebut dari raw GitHub (konten bisa berbeda dari yang
-dibaca di awal sesi).
+Claude **wajib re-fetch** file tersebut dari raw GitHub.
 
 ---
 
-## 4. Membaca Repo GitHub
+## 4. Lingkungan Kerja & Membaca Repo
 
-Repo SmartWMS: **`github.com/iyunn/smart-warehouse-management-system`** (PUBLIC)
+- Fillian develop di **PC lokal Windows**, folder `D:\BABAYAGA\HMM\project\smart-wmsV2`. **Tidak memakai Codespace lagi.**
+- Claude **tidak bisa melihat file lokal** — hanya yang sudah di-push ke GitHub.
+  Kalau Claude perlu file yang belum di-push, minta Fillian push dulu atau upload filenya.
+- Error lokal (build, runtime, PostgreSQL) → minta Fillian paste output terminal lengkapnya.
+- Dev server: `npm run dev` di port **3001**; database dev `smartwms_dev` (ARCHITECTURE D-13).
 
-Claude membaca file langsung dari GitHub — **Fillian tidak perlu upload file manual**.
-
-> **⚠️ Penting — Codespace Workflow:** Fillian SELALU bekerja di **GitHub Codespace**
-> yang di-generate dari `main` branch (bukan di mesin lokal). Implikasinya:
-> - File yang di-apply di Codespace **TIDAK terlihat Claude** sampai Fillian push ke remote
-> - Claude hanya bisa lihat perubahan yang sudah di-push via `raw.githubusercontent.com`
-> - Kalau URL Codespace tiba-tiba 404 setelah apply file baru, itu **biasanya port
->   forwarding timeout** (bukan error kode) — cukup klik "Open in Browser" ulang dari
->   VS Code, atau restart `npm run dev`
-
-### Prioritas metode (dari paling hemat token ke paling boros):
+### Prioritas metode baca repo (dari paling hemat):
 
 | # | Metode | Kapan dipakai |
 |---|---|---|
-| 1 | `curl https://raw.githubusercontent.com/iyunn/smart-warehouse-management-system/main/{path}` | Baca 1 file spesifik **(default, paling sering)** |
-| 2 | `curl https://api.github.com/repos/iyunn/smart-warehouse-management-system/contents/{path}` | List nama file dalam 1 folder, tanpa download content |
-| 3 | `git clone --depth 1 ...` | **Last resort** — hanya kalau butuh banyak file sekaligus |
+| 1 | `curl https://raw.githubusercontent.com/iyunn/smart-wmsV2/main/{path}` | Baca 1 file **(default)** |
+| 2 | `curl https://api.github.com/repos/iyunn/smart-wmsV2/contents/{path}` | List isi 1 folder |
+| 3 | `git clone --depth 1 https://github.com/iyunn/smart-wmsV2.git` | **Last resort** — butuh banyak file sekaligus (mis. migrasi massal, type-check) |
 
 ### Aturan wajib:
-- **Hanya baca file yang relevan** dengan task saat ini — jangan spekulatif baca seluruh repo.
+- **Hanya baca file yang relevan** dengan tahap saat ini.
 - **Re-fetch sebelum edit** jika Fillian sudah commit perubahan sejak file terakhir dibaca.
-- **Dalam satu sesi**, kalau file sudah dibaca dan Fillian belum commit perubahan, tidak perlu re-fetch — gunakan yang sudah ada di context.
-- Claude tetap **read-only** — semua write/push tetap dilakukan Fillian manual.
+- Claude tetap **read-only** terhadap repo — semua write/push dilakukan Fillian.
 
 ---
 
 ## 5. Gaya Penjelasan (Wajib Dipertahankan)
 
-Claude **selalu menjelaskan apa yang sedang dikerjakan** — jangan langsung kasih kode tanpa konteks. Yang wajib ada:
+Claude **selalu menjelaskan apa yang sedang dikerjakan** — jangan langsung kasih kode tanpa konteks:
 
 - **Root cause analysis** saat debug — jelaskan KENAPA bug terjadi, bukan langsung fix
-- **Alasan keputusan teknis** — kenapa pilih pendekatan ini vs alternatif lain
+- **Alasan keputusan teknis** — kenapa pilih pendekatan ini vs alternatif; keputusan arsitektur baru dicatat sebagai `D-xx` di `docs/v2/ARCHITECTURE.md`
 - **Trade-off** kalau ada beberapa opsi desain
-- **Verifikasi logic** via `node -e` atau simulasi sebelum present ke Fillian
-- **Syntax check** via `npx esbuild` sebelum file di-present
-
-Ini tidak dianggap verbose — ini bagian dari cara kerja yang sudah terbukti efektif
-dan Fillian nyaman dengan style ini.
+- **Verifikasi logic** via `node -e` / Vitest sebelum present
+- **Syntax/type check** sebelum file di-present (§11)
 
 ---
 
-## 6. Arsitektur & Teknologi
+## 6. Arsitektur & Teknologi (detail & alasan: `docs/v2/ARCHITECTURE.md`)
 
-- **Stack**: Next.js, React, TypeScript, Tailwind CSS v4, Supabase PostgreSQL, Vercel
-- **Environment**: GitHub Codespace (bukan mesin lokal) — Codespace di-generate dari `main` branch
-- **Scope data**: CGA-only (Cadangan General Affairs 1/2/3)
-- **Prinsip arsitektur** (tidak boleh dilanggar):
-  - Lightweight & performant — koneksi kantor Fillian rendah
-  - DB ringan — minimize join kompleks, tidak pakai relasi berlebihan
-  - Client-side filtering & pagination (bukan server-side) untuk tabel besar
-  - Scalable — struktur fleksibel untuk fitur masa depan
-  - Gunakan JSONB untuk data yang selalu dipakai utuh (tidak pernah di-query per-field)
+- **Database:** PostgreSQL 18 lokal (`localhost` saja); dev `smartwms_dev`, prod `smartwms`
+- **Akses data:** Kysely + `pg`, **hanya** dari `src/server/**` — browser tidak pernah ke DB
+- **Auth:** sendiri (`app_users`, `user_sessions`, bcryptjs, cookie httpOnly)
+- **Validasi:** zod di setiap Route Handler
+- **Deploy:** Next.js standalone sebagai Windows Service (WinSW) di PC kantor, akses via LAN port 3000
+- **Line ending:** LF (`.gitattributes`)
+
+### Prinsip
+- **Lightweight & performant**
+- **Scalable** — struktur fleksibel untuk fitur masa depan
+- **Scope data CGA-only** (CGA1/CGA2/CGA3)
+- **JSONB** untuk data yang selalu dipakai utuh (tidak di-query per field)
+- Agregasi di database (SQL), bukan loop JavaScript; filter/pagination client-side boleh untuk data < ±10.000 baris (D-10)
 
 ---
 
 ## 7. Model AI
 
-Sebelum mengerjakan task kompleks (multi-file, desain skema baru, integrasi lintas
-komponen), Claude **wajib merekomendasikan Opus atau Sonnet** dan menunggu konfirmasi
-Fillian sebelum mulai. Jangan langsung eksekusi tanpa konfirmasi model.
+Sebelum task kompleks (multi-file, desain skema, auth, migrasi data), Claude
+**merekomendasikan Opus atau Sonnet** dan menunggu konfirmasi Fillian.
+Patokan: Tahap 2, 3, 4b, 4c, 6 → Opus. Tahap 1b, 4a, 5, 8 → Sonnet cukup.
+Kalau Fillian sudah bilang "gas" untuk tahap tertentu, itu dianggap konfirmasi.
 
 ---
 
 ## 8. Dokumentasi
 
-Dua file dokumentasi wajib dijaga akurat setiap sesi:
+| File | Sifat | Kapan diupdate |
+|---|---|---|
+| `docs/v2/ROADMAP.md` | Status tahap | Setiap tahap mulai/selesai |
+| `docs/development-journal.md` | **Append-only** history kronologis (lanjutan dari V1) | Setiap tahap/sesi — entry baru di akhir, entry lama tidak diedit |
+| `docs/v2/ARCHITECTURE.md` | Decision log + konvensi | Setiap keputusan teknis baru (`D-xx`); keputusan lama tidak dihapus, ditandai "DIGANTI" |
+| `docs/v2/PRD.md` | Scope & requirement | Saat scope berubah (mis. improvement dipilih) |
+| `docs/v2/STYLEGUIDE.md` | Aturan tampilan | Saat token/komponen/aturan UI berubah |
+| `docs/project_context.md` | Snapshot state sistem | Sampai cutover = state V1 (referensi fitur). Saat cutover ditulis ulang menjadi state V2; setelah itu setiap update cek SEMUA section (Features, Database, File Structure, Known Issues, Libraries) |
 
-### `docs/project_context.md`
-- **Current-state snapshot** — menggambarkan kondisi sistem SEKARANG
-- Setiap update harus cek dampak ke **SEMUA section** (bukan cuma append):
-  - Features Completed / Planned
-  - Database Architecture
-  - File Structure
-  - Known Issues & Technical Debt
-  - Libraries
-- Harus tetap akurat & tidak kontradiktif kalau dibaca tanpa context chat apapun
-- Claude berikan ringkasan perubahan yang dibuat setiap kali update
-
-### `docs/development-journal.md`
-- **Append-only chronological history** — jangan edit entry lama
-- Setiap sesi tambahkan entry baru di akhir file
+Semua dokumen harus akurat & tidak saling kontradiktif kalau dibaca tanpa context chat.
+Claude memberi ringkasan perubahan dokumen setiap kali update.
 
 ---
 
 ## 9. Aturan Kode
 
-- **Wajib pagination loop** untuk semua query Supabase ke tabel yang bisa >1000 baris
-  (`assets_raw`, `lpp_raw`, dll) — Supabase PostgREST diam-diam truncate ke 1000 baris
-  tanpa error. Pakai `.range(from, from+FETCH_SIZE-1)` dengan `FETCH_SIZE=1000`.
-- Syntax check wajib via `npx esbuild` sebelum file di-present ke Fillian.
-- Logic verification via `node -e` untuk kalkulasi/algoritma penting.
-- Hindari pattern deprecated; prioritaskan readability, maintainability, performance.
+- Semua akses DB lewat `src/server/**`; komponen `"use client"` tidak boleh mengimpor `src/server/**`.
+- Tidak ada limit 1000 baris (bukan PostgREST); query tabel besar wajib punya `WHERE`/`LIMIT` yang disengaja.
+- Operasi multi-tabel dalam **satu transaksi**.
+- Raw SQL hanya dengan parameter binding — tidak pernah menyambung string input user.
+- Setelah migrasi skema: `npm run db:codegen` dan commit `types.ts` bersama migrasinya.
+- Kontrak API (`/api/*`) tidak berubah selama fase paritas (D-08).
+- Secret hanya di `.env.local` / `.env` — **tidak pernah** di kode (repo publik).
+- Selama route masih memakai Supabase (sebelum Tahap 4 selesai): ikuti pola V1, termasuk pagination
+  loop `.range()` untuk tabel > 1000 baris. Jangan menambah fitur baru di atas Supabase.
+- Hindari pattern deprecated; prioritaskan readability, maintainability, performance, security.
 
 ---
 
 ## 10. Komunikasi
 
 - **Bahasa**: Indonesia casual ("bro")
-- **Gaya**: langsung to the point, tidak verbose — tapi tetap jelaskan reasoning
-- Kalau ada ambiguitas scope sebelum task besar → tanya dulu, jangan asumsi sendiri
-- Kalau ada multiple pilihan desain → jelaskan trade-off, beri rekomendasi, tunggu konfirmasi
-- **Jangan tanya lebih dari 1 pertanyaan sekaligus** — kalau perlu clarifikasi, tanya yang paling krusial dulu
+- **Gaya**: langsung to the point, tapi tetap jelaskan reasoning
+- Ambiguitas scope sebelum task besar → tanya dulu
+- Multiple pilihan desain → jelaskan trade-off, beri rekomendasi, tunggu konfirmasi
+- **Jangan tanya lebih dari 1 pertanyaan sekaligus** — tanya yang paling krusial dulu
 
 ---
 
-## 11. Supabase Row-Limit — Catatan Penting
+## 11. Checklist Sebelum Present File ke Fillian
 
-Supabase PostgREST default **limit 1000 baris per query**. Query tanpa `.range()` akan:
-- Diam-diam truncate ke 1000 baris pertama
-- **Tidak error** — jadi bug ini tidak kelihatan sampai data melebihi 1000 baris
-- Pernah menyebabkan data loss (catatan `asset_notes` salah terhapus, 18 Juni 2026)
-
-**Selalu pakai pagination loop** untuk tabel besar:
-```typescript
-let allData = [];
-let from = 0;
-const FETCH_SIZE = 1000;
-while (true) {
-  const { data } = await supabase
-    .from('table')
-    .select('...')
-    .range(from, from + FETCH_SIZE - 1);
-  allData = [...allData, ...(data ?? [])];
-  if ((data ?? []).length < FETCH_SIZE) break;
-  from += FETCH_SIZE;
-}
-```
-
----
-
-## 12. Checklist Sebelum Present File ke Fillian
-
-- [ ] Syntax check via `npx esbuild` — tidak boleh ada error
-- [ ] Logic kritis diverifikasi via `node -e` simulasi
-- [ ] File yang diedit sudah di-fetch ulang (re-fetch) dari repo jika Fillian sudah commit
-- [ ] Tabel output (File Generated / Lokasi / Status) sudah ada
-- [ ] Commit message sudah disiapkan
+- [ ] Type check `npx tsc --noEmit` (atau `npx esbuild` bila dependency belum ada) — tidak ada error baru
+- [ ] Logic kritis diverifikasi via `node -e` atau Vitest
+- [ ] File yang diedit sudah di-fetch ulang jika Fillian sudah commit
+- [ ] Tabel output + **repo tujuan** sudah ada
+- [ ] Perintah apply untuk bash MSYS2 + commit message sudah disiapkan
 - [ ] Tidak ada dead code / import yang tidak terpakai
+- [ ] Tidak ada secret / key di file
+- [ ] ROADMAP & journal sudah diupdate untuk tahap ini

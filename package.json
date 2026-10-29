@@ -1,32 +1,47 @@
 {
-  "name": "smart-warehouse-management-system",
-  "version": "0.1.0",
+  "name": "smart-wms-v2",
+  "version": "2.0.0-alpha.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "db:migrate": "node --env-file=.env.local --import tsx src/server/db/migrate.ts",
+    "db:codegen": "kysely-codegen",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.105.3",
+    "bcryptjs": "^3.0.3",
+    "kysely": "^0.29.7",
     "lucide-react": "^1.14.0",
     "next": "16.2.4",
     "pdfjs-dist": "^3.11.174",
+    "pg": "^8.23.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
-    "xlsx": "^0.18.5"
+    "server-only": "^0.0.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-pdf": "^6.2.0",
     "babel-plugin-react-compiler": "1.0.0",
+    "kysely-codegen": "^0.20.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

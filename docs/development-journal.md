@@ -3348,3 +3348,57 @@ dengan filter lain, dan ikut ter-reset tombol Reset.
 nama variabel akumulator di blok `filtered` ditebak (`out`) padahal aslinya `result`.
 Syntax check TIDAK menangkapnya (secara sintaksis sah, cuma tak terdeklarasi).
 Pelajaran: baca variabel di sekitar titik sisip, jangan menebak.
+
+# 30 Oktober 2026 — Awal SmartWMS V2 (repo baru, PC lokal) + Tahap 1a & 1b
+
+### Konteks
+TA selesai. SmartWMS dipindah dari cloud (Vercel + Supabase) ke PC kantor Fillian sebagai server,
+diakses lewat LAN, sekaligus di-improve → **SmartWMS V2**. Repo baru `github.com/iyunn/smart-wmsV2`,
+diawali clone repo V1 beserta histori. Development di PC lokal Windows (terminal MSYS2 bash),
+Codespace tidak dipakai lagi.
+
+### Keputusan utama (detail & alasan: `docs/v2/ARCHITECTURE.md` D-01 s.d. D-21)
+- **PostgreSQL 18**, bukan MySQL/XAMPP: skema V1 sudah PostgreSQL (`uuid`, `timestamptz`, `jsonb`,
+  `ON CONFLICT`, `ilike`) → pindah lewat `pg_dump`; XAMPP membawa Apache + PHP yang tidak terpakai.
+- **Kysely + `pg`** (bukan PostgREST), atas permintaan "pakai yang scalable": SQL penuh untuk
+  agregasi di DB, tipe di-generate dari skema, tanpa limit 1.000 baris. Kontrak API V1 tetap (D-08).
+- **Auth sendiri** (app_users + user_sessions + bcryptjs); lupa password via email diganti reset
+  oleh Super Admin.
+- **Windows Service via WinSW**, bukan PM2.
+- Dev & prod sama-sama **native Windows**; DB & port dipisah (`smartwms_dev`/3001 vs `smartwms`/3000).
+- **Light theme** diadaptasi dari STYLEGUIDE AYAMSMART → `docs/v2/STYLEGUIDE.md`; dark tetap.
+
+### [SECURITY] Temuan V1 — hotfix DILEWATI
+`src/lib/supabaseClient.ts` berisi anon key di repo publik, dan semua policy RLS allow-all → data
+Supabase bisa dibaca/diubah siapa pun yang membaca repo. 23 route API juga berjalan sebagai `anon`,
+sehingga RLS tidak bisa diperketat tanpa mengubah kode dulu.
+Rencana hotfix (Tahap 0a kode + 0b RLS) disusun, tapi **dilewati atas keputusan Fillian** karena V1
+akan ditinggalkan. Konsekuensi yang dicatat: celah tetap terbuka sampai cutover → Tahap 7 wajib
+mem-pause project Supabase / mencabut akses anon di hari cutover (PRD §7, §8).
+
+### Tahap 1a — setup repo
+Dokumen baru: `docs/v2/PRD.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `STYLEGUIDE.md`; `docs/chat-rule.md`
+ditulis ulang untuk V2 (dua repo, PC lokal, perintah bash MSYS2); `README.md`; `.gitattributes` (LF).
+Saat setup pertama: `Expand-Archive` gagal karena terminal bash, bukan PowerShell; commit gagal karena
+identitas git belum diset; push 403 karena kredensial GitHub tersimpan milik akun lain → solusi:
+`git config --global user.*` dan username `iyunn` di URL remote.
+
+### Tahap 1b — fondasi database
+- `deploy/windows/setup-db.sql`: role `smartwms_owner` (migrasi) + `smartwms_app` (hanya DML),
+  database UTF8, default privileges (D-20). Idempotent — aman dijalankan ulang.
+- `src/server/db/create.ts` (pabrik koneksi + parser tipe), `index.ts` (instance `db`, server-only,
+  singleton saat hot reload), `migrate.ts` (`latest`/`down`/`status`/`check`), `types.ts` (codegen).
+- Parser tipe disamakan dengan V1 (D-21): int8 & numeric → number, date → string.
+- `.kysely-codegenrc.json` (opsi codegen di file, bukan argumen, supaya aman di cmd.exe & bash).
+- Script npm: `dev` (3001), `db:migrate`, `db:codegen`, `test`. `@types/node` naik ke 24 karena
+  peer dependency Vitest 5.
+
+[GOTCHA] Kysely 0.29 memindahkan `Migrator` & `FileMigrationProvider` ke `kysely/migration`.
+[GOTCHA] Paket `server-only` melempar error bila diimpor di luar Next.js → skrip CLI memakai
+`create.ts`, bukan `index.ts`.
+[GOTCHA] `--url env(...)` di npm script rusak di shell (tanda kurung) → opsi dipindah ke file config.
+
+[VERIFIKASI] Diuji pada PostgreSQL 16 di sandbox (perilaku role & privileges sama di 18):
+setup-db.sql dijalankan 2× tanpa error (idempotent, password berisi tanda kutip aman);
+migrasi contoh up → status → down berhasil; codegen menghasilkan tipe benar (int8 → number);
+role app bisa INSERT/SELECT/DELETE tapi ditolak CREATE TABLE; `tsc --noEmit` 0 error.

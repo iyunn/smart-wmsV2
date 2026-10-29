@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SmartWMS V2
 
-## Getting Started
+Sistem monitoring, rekonsiliasi, dan Surat Jalan aset gudang CGA (CGA1/CGA2/CGA3) untuk divisi
+General Affairs — versi lokal/on-premise yang berjalan di PC kantor dan diakses lewat LAN.
 
-First, run the development server:
+> Lanjutan dari SmartWMS V1 (cloud, Vercel + Supabase):
+> [`iyunn/smart-warehouse-management-system`](https://github.com/iyunn/smart-warehouse-management-system),
+> versi Tugas Akhir di tag `v1.0-cloud-ta`.
+
+## Status
+
+Dalam pengembangan. Tahap aktif dan progres: [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md).
+Sampai Tahap 4 selesai, kode di repo ini masih memakai Supabase seperti V1.
+
+## Dokumen
+
+| Dokumen | Isi |
+|---|---|
+| [`docs/v2/PRD.md`](docs/v2/PRD.md) | Scope, requirement, kriteria cutover |
+| [`docs/v2/ARCHITECTURE.md`](docs/v2/ARCHITECTURE.md) | Keputusan teknis (D-xx), struktur folder, konvensi kode |
+| [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md) | Tahapan kerja & status |
+| [`docs/v2/STYLEGUIDE.md`](docs/v2/STYLEGUIDE.md) | Aturan tampilan (light & dark) |
+| [`docs/chat-rule.md`](docs/chat-rule.md) | Pola kerja pengembangan |
+| [`docs/development-journal.md`](docs/development-journal.md) | Riwayat pengembangan (append-only) |
+| [`docs/project_context.md`](docs/project_context.md) | Snapshot fitur & skema (V1, sampai cutover) |
+
+## Stack target
+
+Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · PostgreSQL 18 · Kysely · Windows Service (WinSW)
+
+## Menjalankan (development)
+
+Prasyarat: Node.js 24 LTS, PostgreSQL 18.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local        # isi password & key
+psql -U postgres -v dbname=smartwms_dev -v owner_pw='...' -v app_pw='...' -f deploy/windows/setup-db.sql
+npm install
+npm run db:migrate -- check       # tes koneksi
+npm run db:migrate                # terapkan migrasi
+npm run dev                       # http://localhost:3001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | Fungsi |
+|---|---|
+| `npm run dev` | Server development (port 3001) |
+| `npm run db:migrate [-- latest\|down\|status\|check]` | Migrasi skema |
+| `npm run db:codegen` | Generate tipe `src/server/db/types.ts` dari skema |
+| `npm test` | Unit test (Vitest) |

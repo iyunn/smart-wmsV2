@@ -1,0 +1,17 @@
+# SmartWMS V2 — semua file teks disimpan LF di repo (ARCHITECTURE D-19)
+* text=auto eol=lf
+
+# Skrip Windows tetap CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Biner
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.zip  binary
+*.woff2 binary

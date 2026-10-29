@@ -13,11 +13,15 @@ import type { DB } from "./types";
 //   (biaya_perolehan, total_qty, dst.) jauh di bawah 2^53, jadi aman.
 // - date → string "YYYY-MM-DD". Default `pg` mengubahnya jadi Date jam 00:00 waktu
 //   lokal server, yang bisa bergeser tanggal saat diserialisasi ke JSON (UTC).
+// - timestamp TANPA zona → string "YYYY-MM-DDTHH:MM:SS[.ffffff]" persis format PostgREST V1.
+//   Default `pg` menganggapnya jam LOKAL proses Node (WIB di PC server) lalu menggeser
+//   7 jam saat jadi JSON. Isinya jam UTC (database dikunci UTC, D-22).
 // - timestamptz tetap Date → di JSON menjadi string ISO, sama-sama bisa dibaca frontend.
-// Kalau parser ini diubah, sesuaikan juga flag kysely-codegen di package.json.
+// Kalau parser ini diubah, sesuaikan juga `.kysely-codegenrc.json` (D-21).
 pg.types.setTypeParser(pg.types.builtins.INT8, (v) => Number(v));
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
 pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, (v) => v.replace(" ", "T"));
 
 export interface CreateDbOptions {
   /** Jumlah koneksi maksimum di pool. Default 10 (cukup untuk < 20 pengguna LAN). */

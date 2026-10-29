@@ -3,4 +3,211 @@
  * Please do not edit it manually.
  */
 
-export interface DB {}
+import type { ColumnType } from "kysely";
+
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type Numeric = ColumnType<number, number | string, number | string>;
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface AssetNotes {
+  catatan: string;
+  kode_asset: string;
+  updated_at: Generated<Timestamp | null>;
+}
+
+export interface AssetsClean {
+  confidence: string | null;
+  created_at: Generated<string | null>;
+  id: Generated<string>;
+  jenis: string | null;
+  kategori: string | null;
+  merk: string | null;
+  normalized_description: string | null;
+  original_description: string | null;
+  raw_id: string | null;
+  status: string | null;
+  tag: string | null;
+}
+
+export interface AssetsRaw {
+  biaya_perolehan: Generated<number | null>;
+  deskripsi: string | null;
+  id: Generated<string>;
+  invoice_number: string | null;
+  is_prodsus: Generated<boolean>;
+  jumlah_tercatat: Generated<number | null>;
+  kategori_oracle: string | null;
+  kode_asset: string | null;
+  kuantitas: Generated<number | null>;
+  lokasi: string | null;
+  source: Generated<string | null>;
+  status: string | null;
+  sub_coce: Generated<string>;
+  tanggal_dokumen: string | null;
+  toko: string | null;
+  uploaded_at: Generated<string | null>;
+}
+
+export interface ClassificationLogs {
+  confidence: string | null;
+  id: Generated<string>;
+  original_description: string | null;
+  processed_at: Generated<string | null>;
+  raw_id: string | null;
+  result: Json | null;
+}
+
+export interface DatClosing {
+  bulan: string;
+  cga: string;
+  id: Generated<string>;
+  total_items: Generated<number>;
+  total_nilai: Generated<Numeric>;
+  total_qty: Generated<Numeric>;
+  total_tercatat: Generated<Numeric>;
+  uploaded_at: Generated<Timestamp | null>;
+}
+
+export interface KeywordRules {
+  created_at: Generated<Timestamp | null>;
+  id: Generated<string>;
+  keyword: string;
+  rule_type: string;
+  value: string;
+}
+
+export interface LppRaw {
+  deskripsi: string | null;
+  id: Generated<string>;
+  keluar: Generated<number>;
+  kode_asset: string;
+  masuk: Generated<number>;
+  saldo_akhir: Generated<number>;
+  saldo_awal: Generated<number>;
+  toko: string;
+  uploaded_at: Generated<Timestamp>;
+}
+
+export interface PendinganItems {
+  arah: Generated<string | null>;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  jenis: string;
+  keterangan: Generated<string | null>;
+  merk: Generated<string | null>;
+  qty: Generated<number>;
+  tujuan_id: string;
+  urgensi: Generated<string | null>;
+}
+
+export interface Profiles {
+  created_at: Generated<Timestamp | null>;
+  email: string;
+  id: string;
+  nik: string;
+  role: Generated<string>;
+  status: Generated<string>;
+  theme: Generated<string>;
+  updated_at: Generated<Timestamp | null>;
+  username: string;
+}
+
+export interface SjItemTemplates {
+  created_at: Generated<Timestamp | null>;
+  id: Generated<string>;
+  items: Generated<Json>;
+  nama: string;
+}
+
+export interface SjTujuan {
+  created_at: Generated<Timestamp | null>;
+  id: Generated<string>;
+  kecamatan: string | null;
+  kode: string;
+  kota: string | null;
+  nama: string;
+}
+
+export interface StagingArea {
+  asal_toko: Generated<string | null>;
+  catatan: Generated<string | null>;
+  created_at: Generated<Timestamp | null>;
+  deskripsi: Generated<string | null>;
+  id: Generated<string>;
+  is_at_lebih: Generated<boolean>;
+  jenis: Generated<string | null>;
+  kode_asset: string | null;
+  merk: Generated<string | null>;
+  sj_id: string | null;
+  tanggal_masuk: Generated<string | null>;
+  updated_at: Generated<Timestamp | null>;
+}
+
+export interface SuratJalan {
+  approved_by: string | null;
+  created_at: Generated<Timestamp | null>;
+  created_by: Generated<string | null>;
+  id: Generated<string>;
+  is_archived: Generated<boolean | null>;
+  jenis: Generated<string>;
+  no_sj: string;
+  pembawa: string | null;
+  penerima: string | null;
+  status: Generated<string>;
+  tanggal: string;
+  tujuan_id: string | null;
+  updated_at: Generated<Timestamp | null>;
+}
+
+export interface SuratJalanItems {
+  created_at: Generated<Timestamp | null>;
+  id: Generated<string>;
+  is_aktiva: Generated<boolean | null>;
+  is_baru: Generated<boolean | null>;
+  jenis: string | null;
+  keterangan: string | null;
+  kode_asset: string | null;
+  merk: string | null;
+  mutasi_oracle_at: Timestamp | null;
+  mutasi_oracle_status: Generated<boolean | null>;
+  mutasi_wt_at: Timestamp | null;
+  mutasi_wt_status: Generated<boolean | null>;
+  qty: Generated<number | null>;
+  satuan: Generated<string | null>;
+  serial_number: string | null;
+  sj_id: string | null;
+  urutan: Generated<number>;
+}
+
+export interface DB {
+  asset_notes: AssetNotes;
+  assets_clean: AssetsClean;
+  assets_raw: AssetsRaw;
+  classification_logs: ClassificationLogs;
+  dat_closing: DatClosing;
+  keyword_rules: KeywordRules;
+  lpp_raw: LppRaw;
+  pendingan_items: PendinganItems;
+  profiles: Profiles;
+  sj_item_templates: SjItemTemplates;
+  sj_tujuan: SjTujuan;
+  staging_area: StagingArea;
+  surat_jalan: SuratJalan;
+  surat_jalan_items: SuratJalanItems;
+}

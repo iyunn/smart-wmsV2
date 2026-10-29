@@ -3429,3 +3429,52 @@ ditulis dari snapshot → **2c** impor data.
 [VERIFIKASI] Diuji terhadap PostgreSQL 16 tiruan (schema `auth` + `profiles` ber-FK ke `auth.users`,
 trigger `handle_new_user`, `surat_jalan` dengan RLS & policy, `.env.local` CRLF): snapshot berhasil,
 FK & trigger ke `auth` terdeteksi, jumlah baris benar (645).
+
+# 30 Oktober 2026 — Tahap 2a selesai, Tahap 2b (migrasi baseline)
+
+### Tahap 2a ✅
+Snapshot ter-push setelah dua kali gagal login (`password authentication failed`) — diselesaikan
+Fillian. `snapshot.sh` sekarang menolak baris `SUPABASE_DB_URL` ganda dan placeholder
+`[YOUR-PASSWORD]`, serta membuang tanda kutip pembungkus.
+
+Isi snapshot (Supabase production, PostgreSQL 17.6):
+- 14 tabel, total ±33 ribu baris: surat_jalan 1.925, surat_jalan_items 7.389, assets_raw/clean 5.173,
+  lpp_raw 5.443, sj_tujuan 973, keyword_rules 728, asset_notes 450, staging_area 63,
+  pendingan_items 45, dat_closing 18, profiles 4, sj_item_templates 4, classification_logs 0.
+- 4 akun, semua hash bcrypt `$2a$` → bisa diverifikasi `bcryptjs`, user tidak perlu ganti password.
+- 1 FK ke luar public (`profiles.id → auth.users`), 1 trigger `auth.users` (`handle_new_user`).
+- Extension: pgcrypto, uuid-ossp, pg_stat_statements, supabase_vault — tidak ada yang dibutuhkan V2.
+
+### Tahap 2b — `0001_baseline.ts`
+Ditulis dari snapshot, **disamakan persis** dengan V1: 14 tabel, semua kolom/tipe/default/nullable,
+30 constraint (14 PK, 6 UNIQUE, 5 FK, 5 CHECK), 30 index. Dibuang: 15 policy + RLS, FK & trigger ke `auth`,
+function `rls_auto_enable`. `extensions.uuid_generate_v4()` → `gen_random_uuid()` (bawaan PG ≥ 13).
+
+[BUG YANG DICEGAH] Zona waktu. Tiga kolom V1 bertipe `timestamp` **tanpa** zona
+(`assets_raw.uploaded_at`, `assets_clean.created_at`, `classification_logs.processed_at`). Di Supabase
+server ber-zona UTC, jadi `now()` menyimpan jam UTC. Installer PostgreSQL Windows memakai zona OS
+(WIB) → `now()` akan menyimpan jam WIB, dan driver `pg` membaca kolom tanpa zona sebagai jam lokal
+proses Node → "DAT update terakhir" bisa bergeser 7 jam. Solusi: database dikunci UTC (D-22) +
+parser `timestamp` mengembalikan string format PostgREST (D-21).
+
+Catatan optimasi untuk nanti (tidak diubah demi paritas): `idx_assets_raw_kode` duplikat dengan
+index unik `assets_raw_kode_asset_unique`; `idx_assets_raw_toko` tertutup oleh `idx_assets_raw_toko_id`.
+
+[VERIFIKASI] Di sandbox (PostgreSQL 16, server sengaja diset `Asia/Jakarta` meniru Windows):
+- Dump Supabase dimuat ke database pembanding, lalu katalog (kolom, tipe, default, nullable,
+  constraint, index) dibandingkan dengan hasil migrasi → **identik**, selain tabel `kysely_migration*`.
+- Migrasi up → down → up berhasil; codegen menghasilkan 14 tabel; `tsc --noEmit` 0 error.
+- Koneksi app: `show timezone` = UTC; `uploaded_at` default = jam UTC (string); int8 → number;
+  date → string; role `smartwms_app` bisa INSERT ke tabel baru (default privileges jalan).
+
+[BUG FIX — Windows] `npm run db:migrate` gagal di PC Fillian: "Only URLs with a scheme in: file, data,
+and node are supported... Received protocol 'd:'". Root cause: `FileMigrationProvider` bawaan Kysely
+memanggil `import()` dengan path absolut Windows (`D:\...`), padahal loader ESM Node.js di Windows
+mewajibkan `file:///D:/...`. Di Linux path absolut sah, jadi lolos uji sandbox.
+Fix: `FileUrlMigrationProvider` sendiri di `migrate.ts` (path → `pathToFileURL`). Nama migrasi tetap
+nama file tanpa ekstensi, jadi riwayat di tabel `kysely_migration` tetap cocok (diuji: status yang
+dicatat provider lama terbaca ✓ oleh provider baru).
+Pelajaran: kode yang menyentuh path file harus memakai `pathToFileURL` / `path.resolve`, jangan
+mengandalkan format path Linux — pengembangan & produksi V2 sama-sama Windows.
+Catatan: `show timezone` di PC dev sebelum migrasi = `Asia/Bangkok` (zona OS) — konfirmasi bahwa
+penguncian UTC (D-22) memang diperlukan.

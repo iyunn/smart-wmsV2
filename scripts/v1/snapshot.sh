@@ -20,10 +20,19 @@ if [[ ! -f .env.local ]]; then
 fi
 
 # Ambil nilai tanpa men-source seluruh file (password bisa berisi karakter shell);
-# buang \r kalau .env.local disimpan dengan CRLF.
+# buang \r kalau .env.local disimpan dengan CRLF, dan tanda kutip pembungkus.
+COUNT="$(grep -cE '^SUPABASE_DB_URL=' .env.local || true)"
+if [[ "$COUNT" -gt 1 ]]; then
+  echo "✗ Ada $COUNT baris SUPABASE_DB_URL di .env.local — sisakan satu saja." >&2; exit 1
+fi
 SUPABASE_DB_URL="$(grep -E '^SUPABASE_DB_URL=' .env.local | head -n1 | cut -d= -f2- | tr -d '\r' || true)"
+SUPABASE_DB_URL="${SUPABASE_DB_URL%\"}"; SUPABASE_DB_URL="${SUPABASE_DB_URL#\"}"
+SUPABASE_DB_URL="${SUPABASE_DB_URL%\'}"; SUPABASE_DB_URL="${SUPABASE_DB_URL#\'}"
 if [[ -z "$SUPABASE_DB_URL" ]]; then
   echo "✗ SUPABASE_DB_URL belum diisi di .env.local (lihat .env.example)." >&2; exit 1
+fi
+if [[ "$SUPABASE_DB_URL" == *"[YOUR-PASSWORD]"* || "$SUPABASE_DB_URL" == *"["*"]"*"@"* ]]; then
+  echo "✗ Placeholder [YOUR-PASSWORD] belum diganti (hapus juga tanda [ ])." >&2; exit 1
 fi
 
 if [[ ! -x "$PGBIN/pg_dump" && ! -x "$PGBIN/pg_dump.exe" ]]; then

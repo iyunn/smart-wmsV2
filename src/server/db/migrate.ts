@@ -1,7 +1,8 @@
-import { promises as fs } from "node:fs";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { sql } from "kysely";
-import { FileMigrationProvider, Migrator } from "kysely/migration";
+import { type Migration, type MigrationProvider, Migrator } from "kysely/migration";
 import { createDb, requireEnv } from "./create";
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -17,16 +18,42 @@ import { createDb, requireEnv } from "./create";
 
 const command = process.argv[2] ?? "latest";
 
+const MIGRATION_FOLDER = path.resolve(process.cwd(), "src/server/db/migrations"); // npm script jalan dari root repo
+const MIGRATION_FILE = /\.(ts|mts|js|mjs)$/;
+
+/**
+ * Pengganti FileMigrationProvider bawaan Kysely. Provider bawaan memanggil
+ * `import("D:\\...\\0001_x.ts")`, yang DITOLAK Node.js di Windows ("Received protocol 'd:'")
+ * karena path absolut harus berupa file:// URL. Di sini path diubah lewat pathToFileURL.
+ * Nama migrasi = nama file tanpa ekstensi (sama dengan perilaku provider bawaan).
+ */
+class FileUrlMigrationProvider implements MigrationProvider {
+  constructor(private readonly folder: string) {}
+
+  async getMigrations(): Promise<Record<string, Migration>> {
+    const files = (await readdir(this.folder))
+      .filter((f) => MIGRATION_FILE.test(f) && !f.endsWith(".d.ts"))
+      .sort();
+
+    const migrations: Record<string, Migration> = {};
+    for (const file of files) {
+      const mod = await import(pathToFileURL(path.join(this.folder, file)).href);
+      // Modul TS yang di-compile tsx sebagai CommonJS muncul di bawah `default`.
+      const migration: Migration | undefined = typeof mod.up === "function" ? mod : mod.default;
+      if (typeof migration?.up !== "function") {
+        throw new Error(`File migrasi ${file} tidak mengekspor function up().`);
+      }
+      migrations[file.replace(MIGRATION_FILE, "")] = migration;
+    }
+    return migrations;
+  }
+}
+
 async function main() {
   const db = createDb(requireEnv("DATABASE_URL_OWNER"), { max: 1 });
   const migrator = new Migrator({
     db,
-    provider: new FileMigrationProvider({
-      fs,
-      path,
-      // npm script selalu dijalankan dari root repo
-      migrationFolder: path.resolve(process.cwd(), "src/server/db/migrations"),
-    }),
+    provider: new FileUrlMigrationProvider(MIGRATION_FOLDER),
   });
 
   try {

@@ -6,5 +6,8 @@
   "excludePattern": "kysely_migration*",
   "numericParser": "number",
   "dateParser": "string",
-  "typeMapping": { "int8": "number" }
+  "typeMapping": {
+    "int8": "number",
+    "timestamp": "string"
+  }
 }

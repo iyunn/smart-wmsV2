@@ -18,8 +18,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 0b | Hotfix keamanan V1 — SQL RLS | V1 (Supabase) | ⏸ dilewati |
 | 1a | Setup repo V2 (clone + remote baru + dokumen) | V2 | ✅ |
 | 1b | Fondasi V2 (PostgreSQL dev, dependency, `src/server/db`) | V2 | ✅ |
-| 2a | Snapshot skema & jumlah baris Supabase | V2 | 🚧 |
-| 2b | Migrasi `0001_baseline` | V2 | ⬜ |
+| 2a | Snapshot skema & jumlah baris Supabase | V2 | ✅ |
+| 2b | Migrasi `0001_baseline` | V2 | 🚧 |
 | 2c | Impor data V1 + pembanding jumlah baris | V2 | ⬜ |
 | 3 | Auth V2 | V2 | ⬜ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
@@ -77,15 +77,16 @@ Branch kerja di repo V2: `main`. Fitur besar boleh pakai branch sementara (`feat
 ## Tahap 2 — Skema baseline & migrasi data
 Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan dari dokumentasi.
 
-### 2a — Snapshot V1 🚧
+### 2a — Snapshot V1 ✅
 - `bash scripts/v1/snapshot.sh` (read-only) → `db/v1-snapshot/schema.sql` + `db/v1-snapshot/row-counts.txt`
 - Isi snapshot: struktur public, jumlah baris exact per tabel, prefix hash `auth.users`, FK ke schema lain, trigger `auth.users`, extension
 **Selesai bila:** dua file snapshot ter-push ke repo.
 **STOP**
 
-### 2b — Migrasi baseline ⬜
+### 2b — Migrasi baseline 🚧
 - `src/server/db/migrations/0001_baseline.ts` dari snapshot: tabel, constraint, index, function yang dipakai
-- Dibuang: policy & `ENABLE ROW LEVEL SECURITY`, grant role Supabase (`anon`/`authenticated`/`service_role`), FK & trigger ke `auth.*` (ditangani Tahap 3)
+- Dibuang: policy & `ENABLE ROW LEVEL SECURITY`, grant role Supabase (`anon`/`authenticated`/`service_role`), FK & trigger ke `auth.*` (ditangani Tahap 3), function `rls_auto_enable`; `extensions.uuid_generate_v4()` → `gen_random_uuid()`
+- Database dikunci UTC (D-22); parser `timestamp` tanpa zona (D-21)
 - `npm run db:codegen` → `types.ts`
 **Selesai bila:** `npm run db:migrate` membuat semua tabel di `smartwms_dev`; `types.ts` berisi semua tabel V1.
 **STOP**

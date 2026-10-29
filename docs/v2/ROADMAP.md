@@ -16,9 +16,11 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 |---|---|---|---|
 | 0a | Hotfix keamanan V1 — kode | V1 | ⏸ dilewati |
 | 0b | Hotfix keamanan V1 — SQL RLS | V1 (Supabase) | ⏸ dilewati |
-| 1a | Setup repo V2 (clone + remote baru + dokumen) | V2 | 🚧 |
-| 1b | Fondasi V2 (PostgreSQL dev, dependency, `src/server/db`) | V2 | 🚧 |
-| 2 | Skema baseline & migrasi data | V2 | ⬜ |
+| 1a | Setup repo V2 (clone + remote baru + dokumen) | V2 | ✅ |
+| 1b | Fondasi V2 (PostgreSQL dev, dependency, `src/server/db`) | V2 | ✅ |
+| 2a | Snapshot skema & jumlah baris Supabase | V2 | 🚧 |
+| 2b | Migrasi `0001_baseline` | V2 | ⬜ |
+| 2c | Impor data V1 + pembanding jumlah baris | V2 | ⬜ |
 | 3 | Auth V2 | V2 | ⬜ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
 | 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
@@ -56,14 +58,14 @@ Branch kerja di repo V2: `main`. Fitur besar boleh pakai branch sementara (`feat
 **Selesai bila:** curl anon gagal, aplikasi tetap jalan untuk user aktif.
 **STOP**
 
-## Tahap 1a — Setup repo V2 🚧
+## Tahap 1a — Setup repo V2 ✅
 - Tag `v1.0-cloud-ta` pada commit TA terakhir (`17e9862`), di-push ke repo V1 dan V2
 - Folder lokal V2 = clone repo V1 → remote `origin` diarahkan ke `smart-wmsV2`, remote `v1` ke repo lama
 - `.gitattributes` (LF, ARCHITECTURE D-19), README V2, dokumen `docs/v2/*` + `docs/chat-rule.md` V2
 **Selesai bila:** `smart-wmsV2` berisi histori V1 + commit dokumen V2; `npm run dev` jalan lokal (masih Supabase).
 **STOP**
 
-## Tahap 1b — Fondasi V2 🚧
+## Tahap 1b — Fondasi V2 ✅
 - Prasyarat di PC dev: Node.js 24 LTS (minimal 22.12), PostgreSQL 18 (installer EDB, termasuk pgAdmin 4)
 - `deploy/windows/setup-db.sql` → role `smartwms_owner` + `smartwms_app`, database `smartwms_dev` (D-20)
 - Dependency: `kysely`, `pg`, `bcryptjs`, `zod`, `server-only`; dev: `kysely-codegen`, `vitest`, `tsx`, `@types/pg`, `@types/node@24`
@@ -72,13 +74,27 @@ Branch kerja di repo V2: `main`. Fitur besar boleh pakai branch sementara (`feat
 **Selesai bila:** `npm run db:migrate -- check` terhubung ke PostgreSQL 18, `npm run db:migrate` & `npm run db:codegen` jalan tanpa error, `npm run dev` tetap jalan.
 **STOP**
 
-## Tahap 2 — Skema baseline & migrasi data ⬜
-- `pg_dump --schema-only` dari Supabase → `0001_baseline.ts` (buang RLS, role & grant khusus Supabase)
-- Ekspor data `public.*` + `auth.users` (id, email, hash) → `scripts/import-supabase.ts`
-- Verifikasi format hash (`$2a$`/`$2b$` = bcrypt)
-- `scripts/compare-counts.ts` → jumlah baris per tabel harus identik
+## Tahap 2 — Skema baseline & migrasi data
+Dipecah tiga karena baseline harus ditulis dari skema **production** asli, bukan dari dokumentasi.
+
+### 2a — Snapshot V1 🚧
+- `bash scripts/v1/snapshot.sh` (read-only) → `db/v1-snapshot/schema.sql` + `db/v1-snapshot/row-counts.txt`
+- Isi snapshot: struktur public, jumlah baris exact per tabel, prefix hash `auth.users`, FK ke schema lain, trigger `auth.users`, extension
+**Selesai bila:** dua file snapshot ter-push ke repo.
+**STOP**
+
+### 2b — Migrasi baseline ⬜
+- `src/server/db/migrations/0001_baseline.ts` dari snapshot: tabel, constraint, index, function yang dipakai
+- Dibuang: policy & `ENABLE ROW LEVEL SECURITY`, grant role Supabase (`anon`/`authenticated`/`service_role`), FK & trigger ke `auth.*` (ditangani Tahap 3)
 - `npm run db:codegen` → `types.ts`
-**Selesai bila:** data V1 lengkap di `smartwms_dev`, compare-counts 100% cocok.
+**Selesai bila:** `npm run db:migrate` membuat semua tabel di `smartwms_dev`; `types.ts` berisi semua tabel V1.
+**STOP**
+
+### 2c — Impor data ⬜
+- `npm run db:import-v1`: salin semua tabel public Supabase → lokal (urut sesuai FK, batch, satu transaksi per tabel); bisa diulang (kosongkan dulu) — dipakai lagi saat cutover
+- Pembanding jumlah baris sumber vs tujuan otomatis di akhir impor
+- Data akun (`auth.users`) ditunda ke Tahap 3
+**Selesai bila:** semua tabel cocok 100% dengan `row-counts.txt` / hitungan langsung.
 **STOP**
 
 ## Tahap 3 — Auth V2 ⬜

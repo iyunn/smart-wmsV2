@@ -3402,3 +3402,30 @@ identitas git belum diset; push 403 karena kredensial GitHub tersimpan milik aku
 setup-db.sql dijalankan 2× tanpa error (idempotent, password berisi tanda kutip aman);
 migrasi contoh up → status → down berhasil; codegen menghasilkan tipe benar (int8 → number);
 role app bisa INSERT/SELECT/DELETE tapi ditolak CREATE TABLE; `tsc --noEmit` 0 error.
+
+# 30 Oktober 2026 — Tahap 1 selesai, Tahap 2a (snapshot V1)
+
+### Tahap 1 ✅
+Fillian: PostgreSQL 18 terpasang di PC dev, `setup-db.sql` jalan, commit Tahap 1a+1b ter-push ke
+`smart-wmsV2`. Terverifikasi dari GitHub: `package.json` (smart-wms-v2), lockfile memuat Kysely,
+`src/server/db/*`, dokumen V2.
+[GOTCHA] Awalnya `psql.exe` tidak ditemukan karena PostgreSQL belum ter-install — skrip sekarang
+mengecek lokasi `pg_dump` dan bisa diarahkan lewat variabel `PGBIN`.
+
+### Tahap 2 dipecah tiga
+Baseline skema harus ditulis dari skema production asli: dokumentasi `project_context.md` tidak
+memuat semua index/constraint/default, dan beberapa SQL migrasi V1 dijalankan manual di Supabase
+tanpa tercatat di repo. Maka: **2a** snapshot (dijalankan Fillian, read-only) → **2b** baseline
+ditulis dari snapshot → **2c** impor data.
+
+### Tahap 2a
+- `scripts/v1/snapshot.sh` — membaca `SUPABASE_DB_URL` dari `.env.local` tanpa men-source seluruh file
+  (password bisa berisi karakter shell; `\r` dibuang bila file CRLF), menjalankan `pg_dump --schema-only
+  --schema=public --no-owner --no-privileges` dan `snapshot-counts.sql`.
+- `scripts/v1/snapshot-counts.sql` — jumlah baris exact per tabel (`query_to_xml`), prefix hash
+  `auth.users` (4 karakter, bukan hash), FK public → schema lain, trigger `auth.users`, extension.
+- Koneksi wajib lewat **Session pooler** Supabase (port 5432): koneksi direct Supabase umumnya IPv6.
+
+[VERIFIKASI] Diuji terhadap PostgreSQL 16 tiruan (schema `auth` + `profiles` ber-FK ke `auth.users`,
+trigger `handle_new_user`, `surat_jalan` dengan RLS & policy, `.env.local` CRLF): snapshot berhasil,
+FK & trigger ke `auth` terdeteksi, jumlah baris benar (645).

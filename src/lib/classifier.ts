@@ -2,11 +2,11 @@
 // FILE: src/lib/classifier.ts
 // GUNA: menebak JENIS dan MERK barang dari kolom deskripsi file DAT Oracle.
 //
-// DIPANGGIL OLEH : classifyAsset() dipakai di src/app/api/process/route.ts
-//                 (fungsi POST, saat upload DAT diproses per 500 baris)
+// DIPANGGIL OLEH : classifyAsset() dipakai di src/server/modules/upload/dat.ts
+//                 (upload DAT, per batch) dan src/server/modules/classification/reclassify.ts
 // MEMANGGIL      : tidak memanggil file lain — murni logika, tanpa database.
 // SUMBER ATURAN : parameter keywordRules, diambil pemanggil dari tabel
-//                 keyword_rules di Supabase. Jadi aturan bisa ditambah user
+//                 keyword_rules (urutan: rule terlama dulu — ARCHITECTURE D-25). Jadi aturan bisa ditambah user
 //                 lewat halaman Classification TANPA mengubah kode ini.
 // ═══════════════════════════════════════════════════════════════════════════
 import type { KeywordRule } from './reviewTypes'
@@ -107,7 +107,7 @@ export function classifyAsset(description: string, keywordRules: KeywordRule[] =
   }
   // ─── LOGIC tingkat keyakinan — SELESAI ───────────────────────────────────
 
-  // Hasil ini dipakai pemanggil (api/process/route.ts) untuk mengisi kolom
+  // Hasil ini dipakai pemanggil (modules/upload/dat.ts) untuk mengisi kolom
   // jenis, merk, dan confidence di tabel assets_clean.
   return {
     original_description: description,

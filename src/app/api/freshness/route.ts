@@ -1,36 +1,14 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { requireUser } from "@/server/auth/guard";
+import { serverError } from "@/server/http";
+import { getFreshness } from "@/server/modules/assets/queries";
 
-// Endpoint ringan — hanya ambil 1 baris dari masing-masing tabel
-// (MAX uploaded_at via ORDER DESC LIMIT 1). Dipakai Sidebar yang render
-// di setiap halaman, jadi harus se-ringan mungkin. JANGAN pakai endpoint
-// ini untuk data besar — ini khusus freshness indicator saja.
+// GET /api/freshness — waktu upload terakhir DAT & LPP (indikator di Sidebar, setiap halaman).
 export async function GET() {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const [dat, lpp] = await Promise.all([
-      supabase
-        .from("assets_raw")
-        .select("uploaded_at")
-        .order("uploaded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("lpp_raw")
-        .select("uploaded_at")
-        .order("uploaded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    return NextResponse.json({
-      datLastUpload: dat.data?.uploaded_at ?? null,
-      lppLastUpload: lpp.data?.uploaded_at ?? null,
-    });
+    return Response.json(await getFreshness());
   } catch (err) {
-    console.error("[freshness]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal Server Error" },
-      { status: 500 }
-    );
+    return serverError("freshness", err);
   }
 }

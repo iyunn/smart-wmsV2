@@ -3622,3 +3622,77 @@ mirip, 1000× tanpa kembar); `next build` sukses; 43 uji HTTP Manajemen User & g
 dicabut + kunci dibuka + 403 MUST_CHANGE_PASSWORD sampai ganti, ganti password: salah/pendek/sama
 ditolak, sesi lain dikeluarkan, tambah/kembar/tidak valid/hapus). Uji regresi 3b: 32/33 — satu
 yang berubah memang disengaja (aksi Manajemen User dulu 503 sementara, sekarang berfungsi).
+
+# 30 Oktober 2026 — Tahap 3c selesai, Tahap 4 (data layer Supabase → Kysely, satu sprint)
+
+### Tahap 3c ✅
+Commit `dda4a5c`. Di PC dev: Manajemen User, reset & ganti password jalan; Vitest 7/7 lolos di
+Windows. `EADDRINUSE :3001` = server dev lain masih jalan (lihat catatan 3b).
+
+### Tahap 4 — semua sub-tahap 4a–4f dalam satu paket
+Atas permintaan Fillian dikerjakan satu sprint (bukan STOP per sub-tahap).
+- **Modul server** `src/server/modules/`: `assets/` (cga, cache, queries), `classification/` (rules,
+  reclassify), `sj/` (master, staging, surat-jalan, no-sj, report, import-wt), `upload/` (dat, lpp),
+  `reports/` (dashboard, stock-live, dat-summary, reconciliation); helper `src/server/http.ts`.
+- **23 route V1** ditulis ulang di atas modul — kontrak request/response sama (D-08) — dan semuanya
+  memanggil `requireUser()`; `DELETE /api/sj` → `requireSuperAdmin()` (V1: tombol hanya disembunyikan).
+- **2 route baru** pengganti query Supabase langsung dari browser: `/api/keyword-rules`
+  (GET/POST/PATCH/DELETE, zod) dan `/api/review/assets`. Client `KeywordRulesTab`, `useKeywordRule`,
+  `useReviewAssets` memakai API ini; panggilan `DELETE` cache dari browser dihapus (server yang
+  menginvalidasi, D-29).
+- **4f**: hapus `src/lib/supabaseClient.ts` (berisi URL + anon key production **hardcoded** — repo publik;
+  key tetap ada di histori git → wajib dicabut saat cutover, PRD §7), paket `@supabase/supabase-js` &
+  `@supabase/ssr`, env `NEXT_PUBLIC_SUPABASE_*`/`SUPABASE_SERVICE_ROLE_KEY`; `next.config.ts`
+  `output: "standalone"`; entri `(tailwind.config.ts)` di `tsconfig.json`. Komentar kode yang masih
+  menyebut Supabase/`api/process` diperbarui.
+
+[BUG V1 DITEMUKAN — sudah benar di V2] Dibuktikan dengan harness paritas (lihat VERIFIKASI):
+- `GET /api/sj` terpotong **1.000 SJ** (batas PostgREST): data V1 1.925 SJ → ±925 SJ paling lama tidak
+  muncul di Daftar SJ. SJ yang dibuat dengan tanggal lampau juga tidak terlihat (uji: 0 dari 4 SJ baru
+  bertanggal Maret muncul di V1).
+- Simpan SJ bersamaan di bulan yang sama → nomor kembar → 500: **9 dari 12** simpan paralel gagal di
+  V1; V2 12/12 berhasil, nomor urut tanpa lompat (D-27).
+- Rule keyword dibaca tanpa `ORDER BY` → prioritas rule bergantung urutan fisik tabel (D-25).
+- Pagination `.range()` tanpa `ORDER BY` (monitoring, sj/report, stock/live, reconciliation): baris bisa
+  ganda/hilang antar halaman saat tabel berubah. V2 satu query, urutan deterministik.
+- Re-apply tag `Allocated` di batch terakhir upload DAT membaca item SJ ber-kode aset tanpa
+  pagination → maksimal 1.000 item; item sesudahnya kehilangan tag setelah upload DAT.
+- `process/clear` menghapus dengan filter `kode_asset <> ''` → baris `kode_asset` NULL tidak ikut
+  terhapus. V2 menghapus semua baris.
+- Total `perolehan` Dashboard dijumlah float JS per baris; V2 menjumlah `numeric` di SQL. Beda baru
+  terlihat pada total > 9×10¹⁵ (data uji ekstrem, bukan data nyata). PDF Rekap DAT masih JS (D-28).
+
+[KEPUTUSAN] D-25 (rule terlama menang), D-26 (route porting tetap validasi manual V1, zod untuk
+route baru), D-27 (nomor SJ + transaksi), D-28 (stock/live, dat-summary, reconciliation masih
+agregasi JS — sementara), D-29 (cache server-side). Perubahan perilaku yang disengaja:
+- Kategori per jenis di Rekap Alokasi = kategori **paling sering** (V1: yang kebetulan terbaca pertama).
+- Daftar tanpa urutan V1 kini punya pengikat (`id`) — urutan stabil.
+- Error kini lebih jelas: kode tujuan kembar 409 "Kode tujuan ini sudah dipakai." (V1 500 pesan
+  PostgreSQL); detail SJ/rule/item yang tidak ada → 404 (V1 500).
+- Import WT mencocokkan kode tujuan tanpa beda huruf besar/kecil (V1 `ilike` — hasil sama, tapi tanpa
+  risiko wildcard `_`/`%`).
+- `created_at`/`updated_at` (`timestamptz`) di JSON berformat `…sssZ` milidetik (V1 `…ssssss+00:00`);
+  sudah diputuskan di D-21, client mem-parse keduanya sama.
+
+[GOTCHA] `next start` mencetak peringatan bila `output: "standalone"` — tetap jalan. Produksi
+(Tahap 6) menjalankan `node .next/standalone/server.js` lewat WinSW.
+[GOTCHA] Cache saran (D-29) tidak tahu bila isi database diganti dari luar aplikasi (`db:import-v1`,
+SQL manual) → nilai lama bisa tampil sampai 5 menit. Setelah impor: restart `npm run dev`.
+[GOTCHA] Paritas klasifikasi hanya bisa dibandingkan bila urutan fisik rule V1 = urutan
+`created_at`; di data V1 ini benar untuk rule yang tidak pernah di-edit.
+
+[VERIFIKASI] `tsc` 0 error; Vitest 15/15 (tambah `no-sj.test.ts`, `cga.test.ts`); `next build`
+sukses (33 route API, standalone). **Harness paritas** di sandbox: route V1 asli (commit `dda4a5c`,
+client Supabase diarahkan ke PostgREST 14 dengan `db-max-rows=1000` + role `anon` + policy V1 =
+emulasi Supabase) vs route V2, dua database berisi data identik hasil `db:import-v1` (27.388 baris):
+- 17 endpoint GET: isi identik (setelah normalisasi format waktu & urutan baris yang di V1 tidak
+  ditentukan); beda yang tersisa = bug V1 di atas.
+- 81 pasang request mutasi (master, SJ keluar/masuk + staging, Rekap Alokasi + kunci 409, staging
+  sync, catatan, upload DAT 4.680 baris/10 batch + finalisasi, reklasifikasi + revert, LPP, closing,
+  import WT): status & respons sama; **isi 12 tabel identik** di 13 titik pemeriksaan.
+- `/api/review/assets` vs query V1 (6 kombinasi sort): baris & urutan sama. PDF Rekap DAT: teks
+  identik kecuali digit terakhir total perolehan > 9×10¹⁵ (urutan penjumlahan float, data uji ekstrem).
+- Keamanan: 29 route → 401 tanpa sesi & dengan cookie palsu; admin biasa hapus SJ → 403; akun wajib
+  ganti password → 403 `MUST_CHANGE_PASSWORD`.
+- Browser (Playwright): halaman Classification memuat via API baru, tambah/edit/hapus rule + revert
+  jalan, 0 error console.

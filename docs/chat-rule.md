@@ -160,8 +160,9 @@ Claude memberi ringkasan perubahan dokumen setiap kali update.
 - Setelah migrasi skema: `npm run db:codegen` dan commit `types.ts` bersama migrasinya.
 - Kontrak API (`/api/*`) tidak berubah selama fase paritas (D-08).
 - Secret hanya di `.env.local` / `.env` — **tidak pernah** di kode (repo publik).
-- Selama route masih memakai Supabase (sebelum Tahap 4 selesai): ikuti pola V1, termasuk pagination
-  loop `.range()` untuk tabel > 1000 baris. Jangan menambah fitur baru di atas Supabase.
+- Setiap Route Handler data memanggil `requireUser()` / `requireSuperAdmin()` di baris pertama; logika
+  & query di `src/server/modules/<domain>/`, route hanya validasi → panggil modul → JSON.
+- Aplikasi V2 tidak memakai Supabase lagi (sejak Tahap 4); `SUPABASE_DB_URL` hanya untuk `db:import-v1`.
 - Hindari pattern deprecated; prioritaskan readability, maintainability, performance, security.
 
 ---

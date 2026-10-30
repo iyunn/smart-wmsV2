@@ -37,7 +37,7 @@ export function usePendingan() {
       const res = await fetch("/api/pendingan");
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Gagal memuat");
-      // Supabase join bisa balikin tujuan sebagai array — normalisasi ke objek.
+      // Jaga-jaga bila tujuan datang sebagai array (bentuk join V1) — normalisasi ke objek.
       const normalized: PendinganItemFull[] = (json.items ?? []).map((it: PendinganItemFull & { tujuan: unknown }) => ({
         ...it,
         tujuan: Array.isArray(it.tujuan) ? it.tujuan[0] : it.tujuan,

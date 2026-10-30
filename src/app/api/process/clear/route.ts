@@ -1,27 +1,19 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { requireUser } from "@/server/auth/guard";
+import { serverError } from "@/server/http";
+import { clearDAT } from "@/server/modules/upload/dat";
 
-/**
- * POST /api/process/clear
- * Menghapus seluruh data assets_raw (dan assets_clean via CASCADE)
- * sebagai bagian dari strategi Full Replace upload DAT.
- *
- * Dipanggil SEKALI dari UploadSection.tsx sebelum batch pertama dikirim,
- * bukan di dalam setiap batch request.
- */
+// POST /api/process/clear — kosongkan assets_raw (+ assets_clean CASCADE) sebelum upload DAT.
 export async function POST() {
-  const { error } = await supabase
-    .from('assets_raw')
-    .delete()
-    .neq('kode_asset', '')   // delete all rows
-
-  if (error) {
-    console.error('[clear] delete error:', error)
-    return NextResponse.json(
-      { success: false, error: `Gagal hapus data lama: ${error.message}` },
-      { status: 500 }
-    )
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  try {
+    await clearDAT();
+    return Response.json({ success: true });
+  } catch (err) {
+    console.error("[process/clear]", err);
+    return Response.json(
+      { success: false, error: `Gagal hapus data lama: ${err instanceof Error ? err.message : err}` },
+      { status: 500 },
+    );
   }
-
-  return NextResponse.json({ success: true })
 }

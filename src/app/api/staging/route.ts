@@ -1,155 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { requireUser } from "@/server/auth/guard";
+import { readJson, serverError } from "@/server/http";
+import { countStagingWithKode, deleteStaging, listStaging, syncStagingToNotes, updateStaging } from "@/server/modules/sj/staging";
 
-// Ekstrak kode CGA dari field toko: "CGA1 – ..." → "CGA1"
-function extractCGA(toko: string): string {
-  const m = (toko ?? "").match(/CGA\d/i);
-  return m ? m[0].toUpperCase() : "";
-}
-
-// ── GET /api/staging — ambil semua item staging ─────────────────────────────
+// /api/staging — staging area barang masuk (lihat modules/sj/staging.ts).
 export async function GET() {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const { data, error } = await supabase
-      .from("staging_area")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ data: data ?? [] });
+    return Response.json({ data: await listStaging() });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error" },
-      { status: 500 }
-    );
+    return serverError("staging", err);
   }
 }
 
-// ── PATCH /api/staging — update catatan dan/atau kode_asset item staging ─────
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const { id, catatan, kode_asset } = await readJson<{ id?: string; catatan?: string | null; kode_asset?: string | null }>(req);
+  if (!id) return Response.json({ error: "id wajib diisi" }, { status: 400 });
   try {
-    const { id, catatan, kode_asset } = await req.json();
-    if (!id) return NextResponse.json({ error: "id wajib diisi" }, { status: 400 });
-
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-
-    // Update catatan kalau dikirim
-    if (catatan !== undefined) patch.catatan = catatan ?? "";
-
-    // Update kode_asset kalau dikirim. Kalau kode_asset diisi (tidak kosong),
-    // otomatis matikan flag is_at_lebih (item jadi punya identitas).
-    if (kode_asset !== undefined) {
-      const trimmed = (kode_asset ?? "").trim();
-      patch.kode_asset = trimmed || null;
-      patch.is_at_lebih = !trimmed;  // kosong = tetap AT Lebih, terisi = bukan
-    }
-
-    const { error } = await supabase
-      .from("staging_area")
-      .update(patch)
-      .eq("id", id);
-
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true });
+    await updateStaging(id, { catatan, kode_asset });
+    return Response.json({ success: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error" },
-      { status: 500 }
-    );
+    return serverError("staging", err);
   }
 }
 
-// ── DELETE /api/staging — hapus item staging manual ─────────────────────────
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const { id } = await readJson<{ id?: string }>(req);
+  if (!id) return Response.json({ error: "id wajib diisi" }, { status: 400 });
   try {
-    const { id } = await req.json();
-    if (!id) return NextResponse.json({ error: "id wajib diisi" }, { status: 400 });
-
-    const { error } = await supabase.from("staging_area").delete().eq("id", id);
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true });
+    await deleteStaging(id);
+    return Response.json({ success: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error" },
-      { status: 500 }
-    );
+    return serverError("staging", err);
   }
 }
 
-// ── POST /api/staging (action: sync) — sinkronisasi ke monitoring ───────────
-// Cek tiap item staging: kalau kode_asset ADA di assets_raw (DAT terbaru) DAN
-// toko-nya CGA1/2/3 → pindahkan catatan ke asset_notes, hapus dari staging.
-export async function POST(req: NextRequest) {
+// POST { action: "sync" } — pindahkan catatan ke Monitoring untuk kode yang sudah ada di DAT/CGA.
+export async function POST(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const body = await readJson<{ action?: string }>(req);
+  if (body.action !== "sync") return Response.json({ error: "action tidak valid" }, { status: 400 });
   try {
-    const body = await req.json().catch(() => ({}));
-    if (body.action !== "sync") {
-      return NextResponse.json({ error: "action tidak valid" }, { status: 400 });
+    const pending = await countStagingWithKode();
+    if (pending === 0) {
+      return Response.json({ success: true, synced: 0, message: "Tidak ada item untuk disinkronkan." });
     }
-
-    // Ambil semua staging yang punya kode_asset (AT Lebih tidak ikut sync)
-    const { data: stagingItems, error: stagingError } = await supabase
-      .from("staging_area")
-      .select("id, kode_asset, catatan")
-      .not("kode_asset", "is", null)
-      .neq("kode_asset", "");
-
-    if (stagingError) throw new Error(stagingError.message);
-    if (!stagingItems || stagingItems.length === 0) {
-      return NextResponse.json({ success: true, synced: 0, message: "Tidak ada item untuk disinkronkan." });
-    }
-
-    const kodeList = stagingItems.map(s => s.kode_asset);
-
-    // Cek keberadaan kode_asset di assets_raw + ambil toko untuk validasi CGA
-    // Pagination loop untuk hindari limit 1000
-    const foundInDAT = new Map<string, string>(); // kode_asset -> toko
-    const BATCH = 200;
-    for (let i = 0; i < kodeList.length; i += BATCH) {
-      const batch = kodeList.slice(i, i + BATCH);
-      const { data: ratRows } = await supabase
-        .from("assets_raw")
-        .select("kode_asset, toko")
-        .in("kode_asset", batch);
-
-      for (const r of (ratRows ?? [])) {
-        const kode = (r as any).kode_asset;
-        const toko = (r as any).toko ?? "";
-        if (kode && extractCGA(toko)) {  // hanya kalau toko mengandung CGA
-          foundInDAT.set(kode, toko);
-        }
-      }
-    }
-
-    // Migrasi catatan untuk item yang ketemu di DAT + CGA
-    let synced = 0;
-    const idsToDelete: string[] = [];
-
-    for (const item of stagingItems) {
-      if (!foundInDAT.has(item.kode_asset)) continue;
-
-      // Upsert catatan ke asset_notes (kalau catatan tidak kosong)
-      if (item.catatan && item.catatan.trim()) {
-        await supabase
-          .from("asset_notes")
-          .upsert(
-            { kode_asset: item.kode_asset, catatan: item.catatan, updated_at: new Date().toISOString() },
-            { onConflict: "kode_asset" }
-          );
-      }
-      idsToDelete.push(item.id);
-      synced++;
-    }
-
-    // Hapus item yang sudah dimigrasi dari staging
-    if (idsToDelete.length > 0) {
-      await supabase.from("staging_area").delete().in("id", idsToDelete);
-    }
-
-    return NextResponse.json({ success: true, synced });
+    return Response.json({ success: true, synced: await syncStagingToNotes() });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error" },
-      { status: 500 }
-    );
+    return serverError("staging", err);
   }
 }

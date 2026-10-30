@@ -1,104 +1,64 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from "@/server/auth/guard";
+import { pgCode, readJson, serverError } from "@/server/http";
+import { createTujuan, deleteTujuan, listTujuan, updateTujuan } from "@/server/modules/sj/master";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// /api/sj/tujuan — master tujuan/cost center penerima SJ.
+type Body = { id?: string; kode?: string; nama?: string; kota?: string | null; kecamatan?: string | null };
 
-// GET — list semua tujuan
+const friendly = (tag: string, err: unknown) => {
+  if (pgCode(err) === "23505") return Response.json({ error: "Kode tujuan ini sudah dipakai." }, { status: 409 });
+  if (pgCode(err) === "23503") {
+    return Response.json({ error: "Tujuan masih dipakai di Surat Jalan, tidak bisa dihapus." }, { status: 409 });
+  }
+  return serverError(tag, err);
+};
+
 export async function GET() {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const { data, error } = await supabase
-      .from('sj_tujuan')
-      .select('*')
-      .order('kode', { ascending: true })
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ tujuan: data ?? [] })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    return Response.json({ tujuan: await listTujuan() });
+  } catch (err) {
+    return serverError("sj/tujuan", err);
   }
 }
 
-// POST — tambah tujuan baru
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const b = await readJson<Body>(req);
+  if (!b.kode?.trim() || !b.nama?.trim()) return Response.json({ error: "Kode dan nama wajib diisi" }, { status: 400 });
   try {
-    const body = await req.json()
-    const { kode, nama, kota, kecamatan } = body
-
-    if (!kode || !nama) {
-      return NextResponse.json({ error: 'Kode dan nama wajib diisi' }, { status: 400 })
-    }
-
-    const { data, error } = await supabase
-      .from('sj_tujuan')
-      .insert({
-        kode: kode.trim().toUpperCase(),
-        nama: nama.trim(),
-        kota: kota?.trim() || null,
-        kecamatan: kecamatan?.trim() || null,
-      })
-      .select()
-      .single()
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ tujuan: data })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    return Response.json({ tujuan: await createTujuan({ kode: b.kode, nama: b.nama, kota: b.kota, kecamatan: b.kecamatan }) });
+  } catch (err) {
+    return friendly("sj/tujuan", err);
   }
 }
 
-// PATCH — edit tujuan
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const b = await readJson<Body>(req);
+  if (!b.id) return Response.json({ error: "ID wajib" }, { status: 400 });
+  if (!b.kode?.trim() || !b.nama?.trim()) return Response.json({ error: "Kode dan nama wajib diisi" }, { status: 400 });
   try {
-    const body = await req.json()
-    const { id, kode, nama, kota, kecamatan } = body
-
-    if (!id) return NextResponse.json({ error: 'ID wajib' }, { status: 400 })
-
-    const { data, error } = await supabase
-      .from('sj_tujuan')
-      .update({
-        kode: kode.trim().toUpperCase(),
-        nama: nama.trim(),
-        kota: kota?.trim() || null,
-        kecamatan: kecamatan?.trim() || null,
-      })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ tujuan: data })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    const tujuan = await updateTujuan(b.id, { kode: b.kode, nama: b.nama, kota: b.kota, kecamatan: b.kecamatan });
+    if (!tujuan) return Response.json({ error: "Tujuan tidak ditemukan" }, { status: 404 });
+    return Response.json({ tujuan });
+  } catch (err) {
+    return friendly("sj/tujuan", err);
   }
 }
 
-// DELETE — hapus tujuan
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return Response.json({ error: "ID wajib" }, { status: 400 });
   try {
-    const { searchParams } = new URL(req.url)
-    const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'ID wajib' }, { status: 400 })
-
-    const { error } = await supabase.from('sj_tujuan').delete().eq('id', id)
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    await deleteTujuan(id);
+    return Response.json({ success: true });
+  } catch (err) {
+    return friendly("sj/tujuan", err);
   }
 }

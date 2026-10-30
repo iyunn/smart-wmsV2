@@ -23,8 +23,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 2c | Impor data V1 + pembanding jumlah baris | V2 | ✅ |
 | 3a | Auth — database & inti server | V2 | ✅ |
 | 3b | Auth — login, register, proxy, sesi di UI | V2 | ✅ |
-| 3c | Auth — manajemen user & ganti password | V2 | 🚧 |
-| 4a–4f | Data layer per domain (Supabase → Kysely) | V2 | ⬜ |
+| 3c | Auth — manajemen user & ganti password | V2 | ✅ |
+| 4a–4f | Data layer per domain (Supabase → Kysely) — satu sprint | V2 | ✅ |
 | 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
 | 6 | Server Windows & backup | PC server | ⬜ |
 | 7 | UAT & cutover | — | ⬜ |
@@ -120,7 +120,7 @@ Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
 **Selesai bila:** login akun V1 dengan password lama berhasil, logout, tema tersimpan, halaman terproteksi.
 **STOP**
 
-### 3c — Manajemen user 🚧
+### 3c — Manajemen user ✅
 - `/admin/users` + API: approve/reject/aktifkan, ubah role, tambah, hapus, **reset password** (password sementara + wajib ganti)
 - Halaman ganti password (wajib bila `must_change_password`); ganti/reset → sesi lain dicabut
 - Tidak boleh menonaktifkan / menurunkan role / menghapus diri sendiri atau Super Admin terakhir
@@ -128,8 +128,10 @@ Dipecah tiga. Aturan auth lengkap: ARCHITECTURE §5.
 **Selesai bila:** semua aksi Manajemen User V1 jalan + reset password.
 **STOP**
 
-## Tahap 4 — Data layer per domain ⬜
-Setiap sub-tahap: route diganti ke Kysely, **kontrak API sama** (ARCHITECTURE D-08), diuji di halaman terkait. **STOP di setiap sub-tahap.**
+## Tahap 4 — Data layer per domain ✅
+Setiap route diganti ke Kysely, **kontrak API sama** (ARCHITECTURE D-08), diuji di halaman terkait.
+> **Dikerjakan dalam satu sprint** (permintaan Fillian, 30 Okt 2026) — tabel sub-tahap di bawah tetap
+> jadi daftar isi. Pengecualian ini hanya untuk Tahap 4; tahap berikutnya kembali STOP per tahap.
 
 **Wajib di setiap route yang dimigrasi:** `requireUser()` (atau `requireSuperAdmin()`) di baris pertama handler. Sampai route dimigrasi, route data V1 hanya dijaga proxy (cek cookie) — celah ini harus tertutup sebelum cutover (PRD §7).
 
@@ -141,6 +143,19 @@ Setiap sub-tahap: route diganti ke Kysely, **kontrak API sama** (ARCHITECTURE D-
 | 4d | Analisa | `monitoring`, `lpp/monitoring`, `reconciliation`, `reclassify` + `useReviewAssets` via API |
 | 4e | Dashboard & laporan | `dashboard/stats`, `stock/live`, `reports/dat-summary` (agregasi di SQL, D-10) |
 | 4f | Bersih-bersih | Hapus `@supabase/*`, `supabase-client/`, env Supabase; file sampah V1 (mis. `(tailwind.config.ts)`, `bckp/`, daftar dikonfirmasi dulu); `next.config.ts` → `output: 'standalone'` |
+
+**Hasil:**
+- 23 route data V1 + 2 route baru (`/api/keyword-rules`, `/api/review/assets` — pengganti query
+  Supabase langsung dari browser) memakai `src/server/modules/**`; semua memanggil `requireUser()` /
+  `requireSuperAdmin()` (hapus SJ: Super Admin)
+- `src/lib/supabaseClient.ts` (URL + anon key production hardcoded) dihapus; paket `@supabase/*` dihapus;
+  `SUPABASE_DB_URL` tetap di `.env.example` khusus impor/cutover
+- Keputusan baru: ARCHITECTURE D-25 s.d. D-29
+- File sampah V1 (`(tailwind.config.ts)`, `bckp/`): perintah hapus diberikan terpisah, opsional.
+  `Miscellaneous/` belum disentuh (berisi contoh PDF SJ WT yang masih berguna untuk uji)
+**Selesai bila:** `tsc`/Vitest/`next build` bersih; tidak ada impor `@supabase`; uji paritas V1↔V2 lolos;
+semua halaman jalan di PC dev dengan data hasil `db:import-v1`.
+**STOP**
 
 ## Tahap 5 — Tema light: token & fondasi ⬜
 - **T1:** nilai token light di `globals.css` diganti sesuai STYLEGUIDE; override lapisan kompatibilitas diarahkan ke `var()` → seluruh app ikut palet baru

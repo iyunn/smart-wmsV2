@@ -2,13 +2,8 @@
 
 import { memo, useCallback, useEffect, useState } from "react";
 
-// Invalidate semua cache yang terdampak setelah edit/delete rule
-function invalidateAllCaches() {
-  fetch("/api/keyword-rules/values", { method: "DELETE" }).catch(() => {});
-  fetch("/api/sj/master/jenis",      { method: "DELETE" }).catch(() => {});
-  fetch("/api/sj/master/merk",       { method: "DELETE" }).catch(() => {});
-}
-import { supabase } from "@/lib/supabaseClient";
+// Cache saran nilai & dropdown SJ di-invalidate oleh server setiap kali rule berubah
+// (src/server/modules/classification/rules.ts) — client tidak perlu memanggilnya lagi.
 import type { KeywordRule } from "@/lib/reviewTypes";
 import { useKeywordRuleValues } from "@/hooks/useKeywordRuleValues";
 import AutocompleteInput from "@/components/review/AutocompleteInput";
@@ -63,22 +58,18 @@ const EditRuleModal = memo(({ rule, onClose, onSaved }: EditRuleModalProps) => {
     setError("");
 
     try {
-      const { error: sbError } = await supabase
-        .from("keyword_rules")
-        .update({
-          keyword: keyword.trim().toUpperCase(),
-          rule_type: ruleType,
-          value: value.trim(),
-        })
-        .eq("id", rule.id!);
-
-      if (sbError) {
-        setError(sbError.message);
+      const res = await fetch("/api/keyword-rules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rule.id, keyword, rule_type: ruleType, value }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setError(j.error ?? `Gagal menyimpan (HTTP ${res.status}).`);
         setSaving(false);
         return;
       }
 
-      invalidateAllCaches();
       onSaved();
       onClose();
     } catch (err) {
@@ -197,8 +188,8 @@ const DeleteConfirmModal = memo(({ rule, onClose, onDeleted }: DeleteConfirmProp
   const handleDelete = useCallback(async () => {
     setDeleting(true);
 
-    const { error } = await supabase.from("keyword_rules").delete().eq("id", rule.id!);
-    if (error) { setDeleting(false); return; }
+    const res = await fetch(`/api/keyword-rules?id=${encodeURIComponent(rule.id!)}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) { setDeleting(false); return; }
 
     setStatus("reverting");
     try {
@@ -214,7 +205,6 @@ const DeleteConfirmModal = memo(({ rule, onClose, onDeleted }: DeleteConfirmProp
       });
     } catch (_) {}
 
-    invalidateAllCaches();
     setDeleting(false);
     onDeleted(rule);
     onClose();
@@ -313,11 +303,9 @@ export default function KeywordRulesTab({ onRulesChanged }: KeywordRulesTabProps
 
   const fetchRules = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("keyword_rules")
-      .select("id, keyword, rule_type, value, created_at")
-      .order("created_at", { ascending: false });
-    setRules((data as KeywordRule[]) ?? []);
+    const res = await fetch("/api/keyword-rules").catch(() => null);
+    const json = res?.ok ? await res.json().catch(() => null) : null;
+    setRules((json?.rules as KeywordRule[]) ?? []);
     setLoading(false);
   }, []);
 

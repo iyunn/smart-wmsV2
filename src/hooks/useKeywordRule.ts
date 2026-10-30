@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import type { AssetClean, RuleFormState } from "../lib/reviewTypes";
 
 const BLANK: RuleFormState = {
@@ -22,20 +21,6 @@ interface UseKeywordRuleReturn {
   closeModal: () => void;
   updateField: <K extends keyof RuleFormState>(key: K, value: RuleFormState[K]) => void;
   submit: () => Promise<boolean>;
-}
-
-/**
- * Invalidate semua cache yang terdampak setelah add/edit rule:
- * - /api/keyword-rules/values (suggestion di AddRuleModal)
- * - /api/sj/master/jenis (dropdown jenis di form Buat SJ)
- * - /api/sj/master/merk (dropdown merk di form Buat SJ)
- *
- * Fire-and-forget: tidak perlu await, tidak block UI.
- */
-function invalidateAllCaches() {
-  fetch("/api/keyword-rules/values", { method: "DELETE" }).catch(() => {});
-  fetch("/api/sj/master/jenis",      { method: "DELETE" }).catch(() => {});
-  fetch("/api/sj/master/merk",       { method: "DELETE" }).catch(() => {});
 }
 
 export function useKeywordRule(): UseKeywordRuleReturn {
@@ -89,17 +74,17 @@ export function useKeywordRule(): UseKeywordRuleReturn {
     setSubmitError("");
 
     try {
-      const { error } = await supabase.from("keyword_rules").insert({
-        keyword:   form.keyword.trim().toUpperCase(),
-        rule_type: form.rule_type,
-        value:     form.value.trim(),
+      // Server menyimpan rule (keyword di-uppercase) lalu meng-invalidate cache
+      // saran nilai + dropdown jenis/merk SJ.
+      const res = await fetch("/api/keyword-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
       });
-
-      if (error) throw new Error(error.message);
-
-      // Invalidate semua cache setelah rule baru tersimpan
-      // Supaya suggestion + dropdown SJ langsung fresh tanpa tunggu TTL
-      invalidateAllCaches();
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? `Gagal menyimpan (HTTP ${res.status}).`);
+      }
 
       setSubmitStatus("success");
       return true;

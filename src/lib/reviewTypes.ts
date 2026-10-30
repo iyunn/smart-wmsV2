@@ -1,5 +1,5 @@
 // ─── assets_clean row ────────────────────────────────────────────────────────
-// Kolom aktual di Supabase: id, raw_id, original_description,
+// Kolom aktual di database: id, raw_id, original_description,
 // normalized_description, jenis, merk, kategori, status, confidence, created_at
 // CATATAN: kode_asset dan toko ada di assets_raw, BUKAN di assets_clean
 export interface AssetClean {
@@ -10,7 +10,7 @@ export interface AssetClean {
   merk: string;
   kategori: string;
   /**
-   * Di Supabase kolom ini bernama `confidence`.
+   * Di database kolom ini bernama `confidence`.
    * Hook melakukan mapping: confidence → confidence_score
    */
   confidence_score: number | string | null;

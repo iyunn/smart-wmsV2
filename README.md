@@ -10,7 +10,8 @@ General Affairs — versi lokal/on-premise yang berjalan di PC kantor dan diakse
 ## Status
 
 Dalam pengembangan. Tahap aktif dan progres: [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md).
-Sampai Tahap 4 selesai, kode di repo ini masih memakai Supabase seperti V1.
+Sejak Tahap 4 seluruh data diakses lewat PostgreSQL lokal (Kysely); Supabase hanya dipakai sebagai
+sumber `npm run db:import-v1` sampai cutover.
 
 ## Dokumen
 
@@ -46,4 +47,5 @@ npm run dev                       # http://localhost:3001
 | `npm run dev` | Server development (port 3001) |
 | `npm run db:migrate [-- latest\|down\|status\|check]` | Migrasi skema |
 | `npm run db:codegen` | Generate tipe `src/server/db/types.ts` dari skema |
+| `npm run db:import-v1 -- --confirm <db>` | Salin data Supabase V1 → database lokal (menimpa isi tabel) |
 | `npm test` | Unit test (Vitest) |

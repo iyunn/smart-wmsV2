@@ -1,61 +1,24 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from "@/server/auth/guard";
+import { serverError } from "@/server/http";
+import { CACHE, cached, invalidate } from "@/server/modules/assets/cache";
+import { distinctCleanValues } from "@/server/modules/assets/queries";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-let cachedJenis: string[] | null = null
-let lastFetched = 0
-const CACHE_TTL = 5 * 60 * 1000
-
+// GET    /api/sj/master/jenis — daftar jenis unik dari hasil klasifikasi (cache 5 menit)
+// DELETE /api/sj/master/jenis — invalidasi cache
 export async function GET() {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const now = Date.now()
-    if (cachedJenis && (now - lastFetched) < CACHE_TTL) {
-      return NextResponse.json({ jenis: cachedJenis, cached: true })
-    }
-
-    let allRows: any[] = []
-    let from = 0
-    const FETCH_SIZE = 1000
-
-    while (true) {
-      const { data, error } = await supabase
-        .from('assets_clean')
-        .select('jenis')
-        .neq('jenis', 'Unknown')
-        .range(from, from + FETCH_SIZE - 1)
-
-      if (error) throw new Error(error.message)
-      const batch = data ?? []
-      allRows = [...allRows, ...batch]
-      if (batch.length < FETCH_SIZE) break
-      from += FETCH_SIZE
-      if (from > 50000) break
-    }
-
-    const uniqueSet = new Set<string>()
-    for (const row of allRows) {
-      if (row.jenis) uniqueSet.add(row.jenis)
-    }
-
-    cachedJenis = Array.from(uniqueSet).sort((a, b) => a.localeCompare(b))
-    lastFetched = now
-
-    return NextResponse.json({ jenis: cachedJenis, cached: false })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    const { value, hit } = await cached(CACHE.masterJenis, () => distinctCleanValues("jenis"));
+    return Response.json({ jenis: value, cached: hit });
+  } catch (err) {
+    return serverError("sj/master/jenis", err);
   }
 }
 
-// DELETE /api/sj/master/jenis — invalidate cache
 export async function DELETE() {
-  cachedJenis = null
-  lastFetched = 0
-  return NextResponse.json({ success: true, message: 'Jenis cache invalidated' })
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  invalidate(CACHE.masterJenis);
+  return Response.json({ success: true, message: "Jenis cache invalidated" });
 }

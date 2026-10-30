@@ -1,24 +1,15 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { requireUser } from "@/server/auth/guard";
+import { serverError } from "@/server/http";
+import { clearLPP } from "@/server/modules/upload/lpp";
 
-// DELETE semua lpp_raw — dipanggil sekali sebelum batch pertama dikirim,
-// sama seperti pola /api/process/clear untuk DAT. Karena 3 file (CGA1/2/3)
-// selalu diupload bersamaan, full replace seluruh tabel setiap kali aman.
+// POST /api/lpp/clear — kosongkan lpp_raw sebelum batch pertama upload LPP (full replace).
 export async function POST() {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const { error } = await supabase
-      .from("lpp_raw")
-      .delete()
-      .not("id", "is", null); // delete semua baris
-
-    if (error) throw new Error(error.message);
-
-    return NextResponse.json({ success: true });
+    await clearLPP();
+    return Response.json({ success: true });
   } catch (err) {
-    console.error("[lpp/clear]", err);
-    return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Internal Server Error" },
-      { status: 500 }
-    );
+    return serverError("lpp/clear", err, { success: false });
   }
 }

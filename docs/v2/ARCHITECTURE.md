@@ -35,7 +35,7 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-06** | `src/proxy.ts` hanya cek **ada/tidaknya cookie berbentuk sah** (optimistic): tanpa cookie → halaman di-redirect ke `/login?next=…`, API → 401 JSON. Validasi sesi penuh di server dekat data: `requireUser()`/`requireSuperAdmin()` di **setiap** Route Handler data, dan `GET /api/me` di setiap halaman (menghapus cookie basi agar tidak terjadi loop redirect) | Di Next.js 16 proxy berjalan di runtime Node.js untuk setiap request termasuk prefetch, dan dianjurkan tidak melakukan query database | Validasi DB di proxy |
 | **D-07** | Lupa password via email **dihapus**, diganti reset oleh Super Admin + wajib ganti password saat login berikutnya | Tidak ada SMTP di LAN | SMTP relay (butuh internet & izin IT) |
 | **D-08** | **Kontrak API dipertahankan** selama fase paritas: isi Route Handler diganti, bentuk request/response tetap | Halaman & hook V1 (±14 ribu baris TSX) tidak perlu ditulis ulang; regresi mudah dilacak per route | Rewrite ke Server Actions sekaligus |
-| **D-09** | Validasi input API dengan **zod** di semua route yang dimigrasi/baru | Batas sistem yang jelas; pesan error konsisten | Validasi manual per route |
+| **D-09** | Validasi input API dengan **zod** di semua route yang dimigrasi/baru — **DIPERSEMPIT oleh D-26** | Batas sistem yang jelas; pesan error konsisten | Validasi manual per route |
 | **D-10** | **Agregasi di database** (SQL `GROUP BY`/view), bukan loop di JavaScript. Filter & pagination client-side tetap boleh untuk data < ±10.000 baris | LAN cepat → mengirim beberapa ribu baris masih ringan; agregasi di DB jauh lebih efisien | Semua server-side (berlebihan untuk skala sekarang) |
 | **D-11** | Aturan V1 "wajib pagination loop `.range()`" **tidak berlaku di V2** (tidak ada limit PostgREST). Diganti: query tabel besar wajib punya `WHERE` / `LIMIT` yang disengaja | Akar masalah (truncate 1.000 baris) hilang | — |
 | **D-12** | Next.js `output: 'standalone'` dijalankan sebagai **Windows Service via WinSW** (NSSM sebagai alternatif) | Auto-start setelah reboot tanpa login Windows; log ke file | PM2 (startup di Windows butuh tool tambahan) |
@@ -51,6 +51,11 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-22** | Database dikunci ke zona waktu **UTC** (`ALTER DATABASE ... SET timezone`, di migrasi 0001) | Sama dengan Supabase. Tiga kolom V1 bertipe `timestamp` tanpa zona (`assets_raw.uploaded_at`, `assets_clean.created_at`, `classification_logs.processed_at`) berisi jam UTC; installer PostgreSQL Windows memakai zona OS (WIB) sehingga `now()` akan menyimpan jam lokal | Mengubah tiga kolom itu ke `timestamptz` (lebih benar, tapi mengubah bentuk data API → kandidat improvement setelah paritas) |
 | **D-23** | Impor data V1 (`scripts/import-v1.ts`) memakai **`COPY` format teks PostgreSQL** via `pg-copy-streams`: sumber dalam transaksi READ ONLY + REPEATABLE READ, tujuan dalam satu transaksi (TRUNCATE → COPY → verifikasi jumlah baris + checksum md5 per tabel → COMMIT). Wajib `--confirm <nama_db>` | Nilai pindah persis tanpa konversi tipe di JavaScript (array `jsonb`, `numeric` presisi tinggi, `timestamp`); satu snapshot konsisten; gagal = database lokal utuh; aman diulang saat cutover | `SELECT` lalu `INSERT` lewat JS (rawan salah konversi jsonb/numeric/timezone); `pg_dump` + `pg_restore` data (tidak ada verifikasi & tidak bisa menolak beda skema) |
 | **D-24** | Aturan yang bergantung pada beberapa baris (mis. "Super Admin aktif terakhir") dicek dalam transaksi dengan **satu** `SELECT ... ORDER BY id FOR UPDATE` yang mengunci semua baris terkait sekaligus | Urutan kunci selalu sama → tidak deadlock; transaksi kedua menunggu lalu melihat kondisi terbaru. Terbukti: versi dua-query (kunci target dulu, lalu Super Admin lain) deadlock 4 dari 6 percobaan | Cek di UI saja; dua query `FOR UPDATE` terpisah |
+| **D-25** | Urutan keyword rule untuk classifier: **rule terlama menang** (`ORDER BY created_at, id`). Daftar di halaman Classification tetap terbaru dulu | Classifier memakai "aturan pertama yang cocok menang". V1 tidak pernah menentukan urutan (PostgREST mengembalikan urutan fisik tabel, yang berubah setelah rule di-edit/VACUUM) → hasil klasifikasi bisa berubah tanpa ada yang mengubah rule. Urutan fisik V1 ≈ urutan pembuatan, jadi hasil sama untuk data yang tidak pernah di-edit (terbukti uji paritas Tahap 4) | Urutan fisik (tidak deterministik); prioritas manual per rule (perlu UI baru → kandidat improvement) |
+| **D-26** | Route yang **diporting dari V1** (Tahap 4) mempertahankan validasi manual V1 (pesan & status identik); **zod** wajib untuk route **baru** (`keyword-rules`, auth, users) dan route lama dikonversi saat berikutnya diubah | Paritas D-08 diuji otomatis per request; menulis ulang validasi 23 route sekaligus menambah risiko regresi tanpa menambah fungsi | zod di semua route sekaligus |
+| **D-27** | Nomor Surat Jalan dibuat **di dalam transaksi** dengan `pg_advisory_xact_lock(hashtext(prefix_bulan))`; header + item (+ staging) SJ, import WT, alokasi Rekap, dan batch upload DAT masing-masing **satu transaksi** | V1: dua penyimpanan bersamaan di bulan yang sama → nomor kembar → error 500 (uji: 9 dari 12 simpan paralel gagal); SJ bisa tersimpan tanpa item bila insert item gagal. V2: 12/12 berhasil, nomor urut tanpa lompat | `SEQUENCE` per bulan (perlu DDL tiap bulan); retry saat unique violation |
+| **D-28** | Pengecualian sementara D-10: `stock/live`, `reports/dat-summary`, dan `reconciliation` masih mengagregasi di **JavaScript** (data diambil lengkap dalam satu query, tanpa batas 1.000). `dashboard/stats` sudah agregasi SQL | Logika V1 (kelompok prodsus/kategori, label, 5 kondisi rekonsiliasi) diporting apa adanya agar paritas bisa dibuktikan; data saat ini ±5.000 baris (di bawah ambang D-10). Pindah ke SQL = kandidat PRD D2 | Tulis ulang ke SQL sekarang (risiko beda hasil tanpa pembanding) |
+| **D-29** | Cache nilai saran (keyword values, master jenis/merk) = **in-memory per proses** (TTL 5 menit, disimpan di `globalThis`), diinvalidasi **oleh server** saat rule berubah, reklasifikasi, atau upload DAT. Endpoint `DELETE` cache V1 tetap ada (kontrak) tapi client tidak memanggilnya lagi | Satu proses Node (satu Windows Service) → cache lokal cukup; V1 bergantung pada browser memanggil `DELETE` setelah mengubah rule | Redis / tanpa cache |
 
 ## 3. Struktur Folder (target V2)
 
@@ -68,11 +73,18 @@ src/
    │  ├─ types.ts               # hasil kysely-codegen (JANGAN diedit manual)
    │  ├─ migrate.ts             # runner Kysely Migrator (npm run db:migrate)
    │  └─ migrations/            # 0001_baseline.ts, 0002_auth.ts, ...
+   ├─ http.ts                  # helper respons Route Handler (serverError, readJson, pgCode)
    ├─ auth/
    │  ├─ password.ts            # hash & verify (bcryptjs)
    │  ├─ session.ts             # create / validate / revoke sesi + cookie
    │  └─ guard.ts               # requireUser(), requireSuperAdmin()
-   └─ modules/<domain>/         # query & logika per domain: sj, assets, lpp, staging, dashboard, ...
+   └─ modules/<domain>/         # query & logika per domain (Tahap 4):
+      ├─ assets/                #   cga.ts, cache.ts (D-29), queries.ts (freshness, monitoring, review)
+      ├─ classification/        #   rules.ts (D-25), reclassify.ts
+      ├─ sj/                    #   master.ts, staging.ts, surat-jalan.ts + no-sj.ts (D-27), report.ts, import-wt.ts
+      ├─ upload/                #   dat.ts (upload DAT per batch + finalisasi), lpp.ts (LPP & closing)
+      ├─ reports/               #   dashboard.ts, stock-live.ts, dat-summary.ts, reconciliation.ts (D-28)
+      └─ users/                 #   manajemen akun (Tahap 3c)
 scripts/
 ├─ import-supabase.ts           # impor dump V1 → DB lokal
 └─ compare-counts.ts            # bandingkan jumlah baris sumber vs tujuan
@@ -166,4 +178,5 @@ Manajemen akun (`src/server/modules/users/service.ts`, Tahap 3c):
 - Windows Firewall: inbound hanya port 3000, profil Domain/Private.
 - Rate limit sederhana di `/api/auth/login` (mis. 5 percobaan gagal / 10 menit per username).
 - Header keamanan dasar via `next.config.ts` (`X-Frame-Options`, `X-Content-Type-Options`).
-- Dependency `xlsx@0.18.5` (versi npm terakhir SheetJS) punya advisory keamanan → evaluasi ganti ke distribusi resmi SheetJS saat Tahap 4b.
+- Hapus Surat Jalan (`DELETE /api/sj`) hanya **Super Admin** di API (sejak Tahap 4). V1 hanya menyembunyikan tombolnya di UI; API-nya terbuka untuk siapa pun.
+- Dependency `xlsx@0.18.5` (versi npm terakhir SheetJS) punya advisory keamanan. Status Tahap 4: **belum diganti** — hanya dipakai di browser (parse LPP `.xls` dari Oracle internal + export Excel), tidak di server. Ganti ke distribusi resmi SheetJS dijadwalkan bersama Tahap 6 (perlu uji ulang parser LPP & semua export).

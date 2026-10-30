@@ -1,170 +1,94 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from "@/server/auth/guard";
+import { readJson, serverError } from "@/server/http";
+import { deletePendingan, insertPendingan, listPendingan, updatePendingan } from "@/server/modules/sj/master";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// /api/pendingan — item pendingan alokasi per tujuan.
+const VALID_URGENSI = ["tinggi", "sedang", "rendah"];
+const VALID_ARAH = ["kirim", "tarik"];
 
-// GET — list semua item pendingan (join tujuan untuk kota/kecamatan/kode/nama).
-// Query optional: ?tujuan_id=xxx untuk filter satu tujuan.
-export async function GET(req: NextRequest) {
+type ItemIn = { jenis?: string; merk?: string; qty?: number; keterangan?: string; urgensi?: string; arah?: string };
+
+export async function GET(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
-    const tujuanId = req.nextUrl.searchParams.get('tujuan_id')
-
-    let query = supabase
-      .from('pendingan_items')
-      .select(`
-        id, tujuan_id, jenis, merk, qty, keterangan, urgensi, arah, created_at,
-        tujuan:sj_tujuan!inner(id, kode, nama, kota, kecamatan)
-      `)
-      .order('created_at', { ascending: true })
-
-    if (tujuanId) query = query.eq('tujuan_id', tujuanId)
-
-    const { data, error } = await query
-    if (error) throw new Error(error.message)
-
-    return NextResponse.json({ items: data ?? [] })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    const tujuanId = new URL(req.url).searchParams.get("tujuan_id");
+    return Response.json({ items: await listPendingan(tujuanId) });
+  } catch (err) {
+    return serverError("pendingan", err);
   }
 }
 
-// POST — tambah item pendingan.
-// Body: { tujuan_id, items: [{ jenis, qty, keterangan }] } (batch)
-//   ATAU { tujuan_id, jenis, qty, keterangan } (single)
-export async function POST(req: NextRequest) {
+// Body: { tujuan_id, items: [...] } (batch) ATAU { tujuan_id, jenis, merk, qty, ... } (single)
+export async function POST(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const body = await readJson<ItemIn & { tujuan_id?: string; items?: ItemIn[] }>(req);
+  if (!body.tujuan_id) return Response.json({ error: "tujuan_id wajib diisi" }, { status: 400 });
+
+  const raw: ItemIn[] = Array.isArray(body.items) ? body.items : [body];
+  const rows = raw
+    .filter((it) => it.jenis && it.jenis.trim())
+    .map((it) => ({
+      tujuan_id: body.tujuan_id!,
+      jenis: it.jenis!.trim(),
+      merk: (it.merk ?? "").trim(),
+      qty: Math.max(1, Number(it.qty) || 1),
+      keterangan: (it.keterangan ?? "").trim(),
+      urgensi: VALID_URGENSI.includes(it.urgensi ?? "") ? it.urgensi! : "sedang",
+      arah: VALID_ARAH.includes(it.arah ?? "") ? it.arah! : "kirim",
+    }));
+  if (rows.length === 0) return Response.json({ error: "Minimal satu item dengan jenis valid" }, { status: 400 });
   try {
-    const body = await req.json()
-    const { tujuan_id } = body
-
-    if (!tujuan_id) {
-      return NextResponse.json({ error: 'tujuan_id wajib diisi' }, { status: 400 })
-    }
-
-    // Normalisasi jadi array
-    const rawItems = Array.isArray(body.items)
-      ? body.items
-      : [{ jenis: body.jenis, merk: body.merk, qty: body.qty, keterangan: body.keterangan, urgensi: body.urgensi, arah: body.arah }]
-
-    const VALID_URGENSI = ['tinggi', 'sedang', 'rendah']
-    const VALID_ARAH = ['kirim', 'tarik']
-
-    const rows = rawItems
-      .filter((it: { jenis?: string }) => it.jenis && it.jenis.trim())
-      .map((it: { jenis: string; merk?: string; qty?: number; keterangan?: string; urgensi?: string; arah?: string }) => ({
-        tujuan_id,
-        jenis: it.jenis.trim(),
-        merk: (it.merk ?? '').trim(),
-        qty: Math.max(1, Number(it.qty) || 1),
-        keterangan: (it.keterangan ?? '').trim(),
-        urgensi: VALID_URGENSI.includes(it.urgensi ?? '') ? it.urgensi : 'sedang',
-        arah: VALID_ARAH.includes(it.arah ?? '') ? it.arah : 'kirim',
-      }))
-
-    if (rows.length === 0) {
-      return NextResponse.json({ error: 'Minimal satu item dengan jenis valid' }, { status: 400 })
-    }
-
-    const { data, error } = await supabase
-      .from('pendingan_items')
-      .insert(rows)
-      .select()
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ items: data ?? [] }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    return Response.json({ items: await insertPendingan(rows) }, { status: 201 });
+  } catch (err) {
+    return serverError("pendingan", err);
   }
 }
 
-// PATCH — edit satu item pendingan.
-// Body: { id, jenis?, merk?, qty?, keterangan?, urgensi?, arah? }
-// Hanya field yang dikirim yang di-update (conditional), agar tidak menimpa
-// field lain dengan nilai kosong.
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const body = await readJson<ItemIn & { id?: string }>(req);
+  if (!body.id) return Response.json({ error: "id wajib diisi" }, { status: 400 });
+
+  const patch: Parameters<typeof updatePendingan>[1] = {};
+  if (typeof body.jenis === "string") {
+    const jenis = body.jenis.trim();
+    if (!jenis) return Response.json({ error: "Jenis tidak boleh kosong" }, { status: 400 });
+    patch.jenis = jenis;
+  }
+  if (typeof body.merk === "string") patch.merk = body.merk.trim();
+  if (typeof body.keterangan === "string") patch.keterangan = body.keterangan.trim();
+  if (body.qty !== undefined) patch.qty = Math.max(1, Number(body.qty) || 1);
+  if (VALID_URGENSI.includes(body.urgensi ?? "")) patch.urgensi = body.urgensi;
+  if (VALID_ARAH.includes(body.arah ?? "")) patch.arah = body.arah;
+  if (Object.keys(patch).length === 0) return Response.json({ error: "Tidak ada field untuk diupdate" }, { status: 400 });
   try {
-    const body = await req.json()
-    const { id } = body
-
-    if (!id) {
-      return NextResponse.json({ error: 'id wajib diisi' }, { status: 400 })
-    }
-
-    const VALID_URGENSI = ['tinggi', 'sedang', 'rendah']
-    const VALID_ARAH = ['kirim', 'tarik']
-
-    const patch: Record<string, unknown> = {}
-
-    if (typeof body.jenis === 'string') {
-      const jenis = body.jenis.trim()
-      if (!jenis) {
-        return NextResponse.json({ error: 'Jenis tidak boleh kosong' }, { status: 400 })
-      }
-      patch.jenis = jenis
-    }
-    if (typeof body.merk === 'string')       patch.merk = body.merk.trim()
-    if (typeof body.keterangan === 'string') patch.keterangan = body.keterangan.trim()
-    if (body.qty !== undefined)              patch.qty = Math.max(1, Number(body.qty) || 1)
-    if (VALID_URGENSI.includes(body.urgensi)) patch.urgensi = body.urgensi
-    if (VALID_ARAH.includes(body.arah))       patch.arah = body.arah
-
-    if (Object.keys(patch).length === 0) {
-      return NextResponse.json({ error: 'Tidak ada field untuk diupdate' }, { status: 400 })
-    }
-
-    const { data, error } = await supabase
-      .from('pendingan_items')
-      .update(patch)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ item: data })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    const item = await updatePendingan(body.id, patch);
+    if (!item) return Response.json({ error: "Item tidak ditemukan" }, { status: 404 });
+    return Response.json({ item });
+  } catch (err) {
+    return serverError("pendingan", err);
   }
 }
 
-// DELETE — clear item (hard delete). Body: { ids: string[] } atau ?id=xxx
-export async function DELETE(req: NextRequest) {
+// DELETE ?id=… atau body { ids: string[] }
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  const idParam = new URL(req.url).searchParams.get("id");
+  let ids: string[] = [];
+  if (idParam) ids = [idParam];
+  else {
+    const body = await readJson<{ ids?: unknown }>(req);
+    if (Array.isArray(body.ids)) ids = body.ids.filter((x): x is string => typeof x === "string");
+  }
+  if (ids.length === 0) return Response.json({ error: "Tidak ada id untuk dihapus" }, { status: 400 });
   try {
-    const idParam = req.nextUrl.searchParams.get('id')
-    let ids: string[] = []
-
-    if (idParam) {
-      ids = [idParam]
-    } else {
-      const body = await req.json().catch(() => ({}))
-      if (Array.isArray(body.ids)) ids = body.ids
-    }
-
-    if (ids.length === 0) {
-      return NextResponse.json({ error: 'Tidak ada id untuk dihapus' }, { status: 400 })
-    }
-
-    const { error } = await supabase
-      .from('pendingan_items')
-      .delete()
-      .in('id', ids)
-
-    if (error) throw new Error(error.message)
-    return NextResponse.json({ deleted: ids.length })
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error' },
-      { status: 500 }
-    )
+    await deletePendingan(ids);
+    return Response.json({ deleted: ids.length });
+  } catch (err) {
+    return serverError("pendingan", err);
   }
 }

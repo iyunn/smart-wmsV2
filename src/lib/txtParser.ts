@@ -184,7 +184,7 @@ function detectDelimiter(firstLine: string): string {
 const TXT_COLUMN_MAP: Record<string, keyof AssetRecord> = {
   "toko":             "toko",
 // ─── PEMETAAN nama kolom file → nama kolom database ────────────────────────
-// Nama di file DAT berbeda dengan nama kolom di Supabase, jadi perlu dipetakan.
+// Nama di file DAT berbeda dengan nama kolom di database, jadi perlu dipetakan.
 //   "No. Seri"   di file  →  kolom kode_asset  di database
 //   "Keterangan" di file  →  kolom deskripsi   di database
   "sub coce":         "sub_coce",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import type {
   AssetClean,
   ReviewSummary,
@@ -11,7 +10,6 @@ import type {
 } from "../lib/reviewTypes";
 
 const PAGE_SIZE = 20;
-const FETCH_SIZE = 1000;
 
 interface UseReviewAssetsReturn {
   assets: AssetClean[];
@@ -55,44 +53,22 @@ export function useReviewAssets(): UseReviewAssetsReturn {
       setError(null);
 
       try {
-        const validSort = sortField === "confidence_score" ? "confidence" : sortField;
-
-        // Fetch semua unknown dengan loop (bypass limit 1000)
-        let allRows: any[] = [];
-        let from = 0;
-
-        while (true) {
-          const { data, error: sbError } = await supabase
-            .from("assets_clean")
-            .select("id, original_description, normalized_description, jenis, merk, kategori, confidence, status")
-            .or("jenis.eq.Unknown,merk.eq.Unknown")
-            .order(validSort, { ascending: sortDir === "asc" })
-            .range(from, from + FETCH_SIZE - 1);
-
-          if (sbError) throw new Error(sbError.message);
-
-          const batch = data ?? [];
-          allRows = [...allRows, ...batch];
-          if (batch.length < FETCH_SIZE) break;
-          from += FETCH_SIZE;
-          if (from > 50000) break;
-        }
-
-        // Total semua aset (untuk completionPct)
-        const { count, error: countError } = await supabase
-          .from("assets_clean")
-          .select("*", { count: "exact", head: true });
-
-        if (countError) throw new Error(countError.message);
+        // Semua aset Unknown + total aset (untuk completionPct) dalam satu request.
+        const params = new URLSearchParams({ sort: sortField, dir: sortDir });
+        const res = await fetch(`/api/review/assets?${params}`);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? `Gagal memuat data (HTTP ${res.status}).`);
+        const allRows: Record<string, unknown>[] = json.rows ?? [];
+        const count: number = json.total ?? 0;
 
         if (!cancelled) {
           setAllAssets(
-            allRows.map((row: any) => ({
+            allRows.map((row) => ({
               ...row,
               confidence_score: row.confidence ?? null,
-            })) as AssetClean[]
+            })) as unknown as AssetClean[]
           );
-          setTotalAssetCount(count ?? 0);
+          setTotalAssetCount(count);
         }
       } catch (err) {
         if (!cancelled)

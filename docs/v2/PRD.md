@@ -139,7 +139,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 ## 7. Kriteria Cutover (Definition of Done V2.0)
 
 - [ ] Semua modul §5.B lolos checklist UAT di server lokal
-- [ ] Setiap Route Handler `/api/*` (kecuali login/register/logout/me) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode
+- [x] Setiap Route Handler `/api/*` (kecuali login/register/logout/me) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode (Tahap 4: 29 route, uji HTTP tanpa sesi → 401)
 - [ ] Jumlah baris semua tabel identik dengan Supabase pada saat freeze
 - [ ] Semua akun bisa login (atau sudah di-reset Super Admin)
 - [ ] Restore dari backup berhasil diuji minimal 1 kali
@@ -154,7 +154,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 | PC server mati (cuti, mati listrik, Windows Update) | Sistem GA tidak bisa dipakai | Windows Service auto-start, active hours Windows Update, UPS bila ada, PC tidak sleep |
 | Disk rusak | Data hilang | Backup harian + salinan mingguan di luar disk server; uji restore |
 | Kebijakan IT kantor melarang server di PC kerja | V2 tidak bisa jalan | Konfirmasi ke IT sebelum Tahap 6 |
-| Regresi saat migrasi query | Data salah tampil | Kontrak API tetap; uji per domain; skrip pembanding jumlah baris |
+| Regresi saat migrasi query | Data salah tampil | Kontrak API tetap; uji per domain; skrip pembanding jumlah baris; uji paritas otomatis V1↔V2 per request & isi tabel (Tahap 4) |
 | Hash password Supabase tidak kompatibel | User harus reset | Fallback: Super Admin reset semua password saat cutover |
 | Scope creep improvement | Cutover molor | Improvement §5.D baru dikerjakan setelah cutover |
 | Data V1 di Supabase terbuka sampai cutover (hotfix Tahap 0 dilewati) | Data aset/SJ bisa dibaca/diubah pihak luar | Kejar cutover; putus akses Supabase di hari cutover |

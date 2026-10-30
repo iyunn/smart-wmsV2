@@ -139,7 +139,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 ## 7. Kriteria Cutover (Definition of Done V2.0)
 
 - [ ] Semua modul §5.B lolos checklist UAT di server lokal
-- [x] Setiap Route Handler `/api/*` (kecuali login/register/logout/me) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode (Tahap 4: 29 route, uji HTTP tanpa sesi → 401)
+- [x] Setiap Route Handler `/api/*` (kecuali login/register/logout/me, dan `/api/health` yang hanya berisi status) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode (Tahap 4: 29 route, uji HTTP tanpa sesi → 401)
 - [ ] Jumlah baris semua tabel identik dengan Supabase pada saat freeze
 - [ ] Semua akun bisa login (atau sudah di-reset Super Admin)
 - [ ] Restore dari backup berhasil diuji minimal 1 kali
@@ -178,6 +178,6 @@ Rincian tahap & status ada di [`ROADMAP.md`](./ROADMAP.md).
 | Q1 | Tidak ada akses dari luar LAN | Asumsi — konfirmasi |
 | Q2 | IT kantor mengizinkan PC menjalankan server & membuka port 3000 di LAN | ✅ Aman — Fillian sendiri pemegang wewenangnya (30 Okt 2026) |
 | Q3 | Daftar improvement V2 yang dipilih (§5.D) | Menunggu Fillian |
-| Q4 | Spesifikasi PC server (RAM, disk, versi Windows) | Intel Core i3 gen 12, NVMe 512 GB, RAM 8 GB (rencana upgrade dalam waktu dekat). Versi Windows belum disebut |
+| Q4 | Spesifikasi PC server (RAM, disk, versi Windows) | Windows 11, Intel Core i3 gen 12, NVMe 512 GB, RAM 8 GB (rencana upgrade dalam waktu dekat) |
 | Q5 | Login pakai email, username, atau keduanya | Default: keduanya |
 | Q6 | PC development sama dengan PC server? | Belum diketahui — rencana aman untuk dua kemungkinan (ARCHITECTURE D-13) |

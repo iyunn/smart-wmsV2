@@ -9,7 +9,7 @@ import { SESSION_COOKIE, SESSION_TOKEN_PATTERN } from "@/server/auth/constants";
 // ══════════════════════════════════════════════════════════════════════════
 
 const PUBLIC_PAGES = ["/login", "/register"];
-const PUBLIC_API = ["/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/me"];
+const PUBLIC_API = ["/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/me", "/api/health"];
 
 export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;

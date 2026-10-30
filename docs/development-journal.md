@@ -3734,3 +3734,48 @@ halaman × 2 tema. **Audit kontras otomatis** (Playwright, tiap teks terlihat di
 disusun dari lapisan induk): V1 ±600 teks gagal AA di light & ±290 di dark → V2 **0** di kedua tema
 (elemen disabled dikecualikan sesuai WCAG). `:focus-visible` terukur 2px `brand-600` di input,
 tombol, tautan.
+
+# 30 Oktober 2026 — Tahap 5 di-push, Tahap 6a (server Windows: DB produksi, service, deploy)
+
+### Tahap 5 ✅
+Commit `f70fe99`.
+
+### Tahap 6 dipecah
+6a = server jalan (DB produksi, service, deploy/rollback); 6b = backup harian + uji restore —
+backup baru bermakna setelah ada database produksi yang terisi. Fillian: Windows 11.
+
+### Tahap 6a
+- **`deploy/windows/`**: `setup-server.ps1` (sekali), `deploy.ps1`, `rollback.ps1`, `status.ps1`,
+  `common.ps1`, `tune-postgres.sql`; `setup-db.sql` kini menerima nama role & password lewat
+  environment + `-v sync_pw=1`. Semua `.ps1` ASCII & kompatibel Windows PowerShell 5.1.
+- **D-32** role produksi sendiri (`smartwms_prod_owner`/`_app`), password acak di `C:\SmartWMS\config`
+  dengan ACL; **D-33** clone terpisah + folder rilis + junction + health check + rollback otomatis;
+  **D-34** setelan PostgreSQL (localhost saja, memori untuk RAM 8 GB). D-12 diperjelas: WinSW v2.12.0,
+  akun LocalService.
+- **Kode:** `GET /api/health` publik (status, rilis, DB — tanpa detail), pool DB dibuat saat query
+  pertama (`next build` tanpa `DATABASE_URL`), header keamanan + `poweredByHeader: false`.
+- **Runbook** `docs/v2/DEPLOY-LOKAL.md` (instalasi, update, rollback, status, troubleshooting).
+
+[BUG DITEMUKAN] `next build` gagal tanpa `.env.local` ("Failed to collect page data") karena
+`src/server/db/index.ts` memanggil `requireEnv("DATABASE_URL")` saat modul diimpor. Di PC dev tidak
+terlihat karena `.env.local` selalu ada; di clone produksi (D-33) pasti gagal. Fix: `createDb()`
+menerima fungsi → pool dibuat saat query pertama (fitur `pool: async () => Pool` di Kysely).
+[GOTCHA] Junction `C:\SmartWMS\app` dilepas dengan `cmd /c rmdir`, bukan `Remove-Item -Recurse`
+(bisa ikut menghapus isi rilis di PowerShell 5.1).
+[GOTCHA] PowerShell 5.1 menganggap tulisan stderr dari program (npm, git) sebagai error bila
+output dialihkan → script tidak mengalihkan output program, cukup cek `$LASTEXITCODE`. robocopy:
+exit code 0–7 = berhasil.
+[GOTCHA] `HOSTNAME` dibaca server standalone Next.js sebagai alamat bind → diset eksplisit `0.0.0.0`.
+[KEPUTUSAN] `X-Frame-Options: SAMEORIGIN` (bukan DENY) karena preview PDF SJ memakai iframe.
+[CATATAN] PRD Q6 (PC dev = PC server?) belum dijawab — script menangani dua-duanya (PostgreSQL 18
+dipakai ulang; dev 3001 & prod 3000 berdampingan dengan database & role terpisah).
+[CATATAN] Penggantian `xlsx` dipindah dari Tahap 6 ke Tahap 8 (bukan bagian server).
+
+[VERIFIKASI] Sandbox Linux (bagian khusus Windows — service, firewall, ACL, junction — diuji di PC):
+`tsc` 0 error; Vitest 15/15; `next build` **tanpa** file env sukses; kelima `.ps1` lolos parser
+PowerShell 7.4 + fungsi `common.ps1` (env file tanpa BOM, kunci lama dipertahankan, password acak)
+diuji; `setup-db.sql` dengan role produksi + `sync_pw` diuji di PostgreSQL (role dev tidak bisa
+connect ke DB produksi & sebaliknya); migrasi 0001–0002 jalan dengan role owner produksi; rilis
+standalone dijalankan persis seperti service (`node --env-file=… server.js`): `/api/health` 200
+berisi nama rilis, 503 `db: down` bila DB tak terjangkau, halaman & font self-host terlayani,
+API tanpa sesi 401, register menulis lewat role app produksi; header keamanan terkirim.

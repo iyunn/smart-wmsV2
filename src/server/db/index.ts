@@ -12,7 +12,8 @@ import { createDb, requireEnv } from "./create";
 
 const globalForDb = globalThis as unknown as { __smartwmsDb?: ReturnType<typeof createDb> };
 
-export const db = globalForDb.__smartwmsDb ?? createDb(requireEnv("DATABASE_URL"));
+// Koneksi dibuat saat query pertama (bukan saat impor) → `next build` tidak butuh DATABASE_URL.
+export const db = globalForDb.__smartwmsDb ?? createDb(() => requireEnv("DATABASE_URL"));
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__smartwmsDb = db;

@@ -28,13 +28,19 @@ export interface CreateDbOptions {
   max?: number;
 }
 
-export function createDb(connectionString: string, options: CreateDbOptions = {}) {
-  const pool = new pg.Pool({
-    connectionString,
-    max: options.max ?? 10,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-  });
+/**
+ * `connection` boleh string atau fungsi. Fungsi = pool baru dibuat saat query PERTAMA, bukan saat
+ * modul diimpor — `next build` bisa jalan tanpa DATABASE_URL (build di server, ARCHITECTURE D-33).
+ */
+export function createDb(connection: string | (() => string), options: CreateDbOptions = {}) {
+  const makePool = (connectionString: string) =>
+    new pg.Pool({
+      connectionString,
+      max: options.max ?? 10,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
+  const pool = typeof connection === "string" ? makePool(connection) : async () => makePool(connection());
   return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
 }
 

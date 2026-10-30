@@ -21,6 +21,7 @@ sumber `npm run db:import-v1` sampai cutover.
 | [`docs/v2/ARCHITECTURE.md`](docs/v2/ARCHITECTURE.md) | Keputusan teknis (D-xx), struktur folder, konvensi kode |
 | [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md) | Tahapan kerja & status |
 | [`docs/v2/STYLEGUIDE.md`](docs/v2/STYLEGUIDE.md) | Aturan tampilan (light & dark) |
+| [`docs/v2/DEPLOY-LOKAL.md`](docs/v2/DEPLOY-LOKAL.md) | Runbook server: instalasi, update, rollback, troubleshooting |
 | [`docs/chat-rule.md`](docs/chat-rule.md) | Pola kerja pengembangan |
 | [`docs/development-journal.md`](docs/development-journal.md) | Riwayat pengembangan (append-only) |
 | [`docs/project_context.md`](docs/project_context.md) | Snapshot fitur & skema (V1, sampai cutover) |
@@ -49,3 +50,14 @@ npm run dev                       # http://localhost:3001
 | `npm run db:codegen` | Generate tipe `src/server/db/types.ts` dari skema |
 | `npm run db:import-v1 -- --confirm <db>` | Salin data Supabase V1 → database lokal (menimpa isi tabel) |
 | `npm test` | Unit test (Vitest) |
+
+## Menjalankan (produksi, PC server)
+
+PowerShell Administrator, dari folder repo — detail di [`docs/v2/DEPLOY-LOKAL.md`](docs/v2/DEPLOY-LOKAL.md):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\setup-server.ps1   # sekali
+powershell -ExecutionPolicy Bypass -File deploy\windows\deploy.ps1         # setiap rilis
+```
+
+Aplikasi berjalan sebagai Windows Service `SmartWMS` di `http://<IP-server>:3000`.

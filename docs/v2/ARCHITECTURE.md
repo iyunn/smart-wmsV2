@@ -38,7 +38,7 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-09** | Validasi input API dengan **zod** di semua route yang dimigrasi/baru — **DIPERSEMPIT oleh D-26** | Batas sistem yang jelas; pesan error konsisten | Validasi manual per route |
 | **D-10** | **Agregasi di database** (SQL `GROUP BY`/view), bukan loop di JavaScript. Filter & pagination client-side tetap boleh untuk data < ±10.000 baris | LAN cepat → mengirim beberapa ribu baris masih ringan; agregasi di DB jauh lebih efisien | Semua server-side (berlebihan untuk skala sekarang) |
 | **D-11** | Aturan V1 "wajib pagination loop `.range()`" **tidak berlaku di V2** (tidak ada limit PostgREST). Diganti: query tabel besar wajib punya `WHERE` / `LIMIT` yang disengaja | Akar masalah (truncate 1.000 baris) hilang | — |
-| **D-12** | Next.js `output: 'standalone'` dijalankan sebagai **Windows Service via WinSW** (NSSM sebagai alternatif) | Auto-start setelah reboot tanpa login Windows; log ke file | PM2 (startup di Windows butuh tool tambahan) |
+| **D-12** | Next.js `output: 'standalone'` dijalankan sebagai **Windows Service via WinSW** (NSSM sebagai alternatif). Diterapkan Tahap 6a: WinSW v2.12.0, akun **LocalService**, `node --env-file=C:\SmartWMS\config\smartwms.env`, bergantung pada service PostgreSQL, restart otomatis bila crash | Auto-start setelah reboot tanpa login Windows; log ke file; akun tanpa hak admin (LocalSystem terlalu kuat untuk proses web) | PM2 (startup di Windows butuh tool tambahan) |
 | **D-13** | **Dev & prod sama-sama native Windows** + PostgreSQL 18. Database terpisah: `smartwms_dev` (dev) dan `smartwms` (prod); `next dev` di port **3001**, service produksi di **3000** | Lingkungan dev = produksi (tidak ada beda Linux vs Windows); DB & port terpisah aman walau dev dan server di PC yang sama | Codespace + Docker Compose (rencana awal, ditinggalkan 30 Okt 2026 karena Fillian develop di PC lokal) |
 | **D-14** | **Repo baru `github.com/iyunn/smart-wmsV2`**, diawali clone repo V1 (setelah hotfix Tahap 0a) **beserta histori git**. Repo V1 tetap deploy ke Vercel sampai cutover; tag **`v1.0-cloud-ta`** di repo V1 (commit sebelum hotfix) | V1 tidak terganggu; histori & journal tetap nyambung; versi TA bisa direproduksi | Branch `v2` di repo lama (rencana awal, diganti karena Fillian membuat repo baru); repo baru tanpa histori (kehilangan `git blame` & konteks commit) |
 | **D-15** | Font di-host sendiri: **Plus Jakarta Sans Variable** (UI) + **JetBrains Mono Variable** (kode aset/serial) via `@fontsource-variable/*` (terpasang Tahap 5, diimpor di `layout.tsx`) | `next/font/google` butuh internet saat build | Google Fonts |
@@ -58,6 +58,9 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-29** | Cache nilai saran (keyword values, master jenis/merk) = **in-memory per proses** (TTL 5 menit, disimpan di `globalThis`), diinvalidasi **oleh server** saat rule berubah, reklasifikasi, atau upload DAT. Endpoint `DELETE` cache V1 tetap ada (kontrak) tapi client tidak memanggilnya lagi | Satu proses Node (satu Windows Service) → cache lokal cukup; V1 bergantung pada browser memanggil `DELETE` setelah mengubah rule | Redis / tanpa cache |
 | **D-30** | **Dark mode ikut STYLEGUIDE**: bahasa visual sama dengan light (netral hangat, aksen biru, kaca untuk bingkai), versi gelap yang nyaman di mata — arang hangat `#161412`/`#1E1B18`, teks gading `#E4DCD2` (±12:1), aksen diredam (STYLEGUIDE §2.4) | Permintaan Fillian (30 Okt 2026): dark disesuaikan styleguide tapi tidak melelahkan mata. Palet dark V1 (navy + neon) gagal AA di ±290 teks | Mempertahankan palet dark V1 (D-16) |
 | **D-31** | Tema diterapkan lewat **variabel CSS**: token per tema di `.light`/`.dark`, dan variabel palet Tailwind v4 (`--color-cyan-*`, `--color-white`, …) dipetakan ke token. Aturan kompatibilitas ditulis di `@layer utilities` (setelah utility Tailwind, tanpa `!important`) agar varian `hover:`/`focus:` tetap menang | V1 memakai ±90 deklarasi `.light .x { … !important }` yang mengalahkan hover/focus dan harus ditulis ulang per tema. Tailwind v4 menulis utility sebagai `var(--color-…)`, jadi satu peta variabel cukup untuk kedua tema | Ganti class di semua halaman sekaligus (±1.500 class — dijadwalkan bertahap di Tahap 8) |
+| **D-32** | Produksi memakai **role sendiri**: `smartwms_prod_owner` / `smartwms_prod_app` (dev tetap `smartwms_owner` / `smartwms_app`). Password acak 32 karakter dibuat `setup-server.ps1`, disimpan di `C:\SmartWMS\config` (ACL: Administrator; service hanya bisa membaca `smartwms.env`). `setup-db.sql` menerima nama role & password lewat environment | Dev & prod di PC yang sama: kredensial di `.env.local` dev secara fisik tidak bisa masuk ke database produksi (diuji: `has_database_privilege` = false) | Satu pasang role untuk dev & prod (D-20 awal) |
+| **D-33** | Deploy = **clone terpisah** `C:\SmartWMS\src` (yang dirilis = yang sudah di-push) → `npm ci` + build → folder rilis `releases\<tanggal>-<commit>` → stop → migrasi → junction `C:\SmartWMS\app` dipindah → start → cek `GET /api/health` (publik, tanpa data sensitif) → gagal = kembali otomatis ke rilis sebelumnya. Pool database dibuat saat query pertama, jadi `next build` tidak butuh `DATABASE_URL` | Rollback cepat (ganti junction, ±10 detik); folder dev & `npm run dev` tidak terganggu deploy; build tidak memegang rahasia | Build langsung di folder dev (ikut perubahan yang belum di-commit, `npm ci` merusak `node_modules` dev); salin manual |
+| **D-34** | Setelan PostgreSQL produksi lewat `ALTER SYSTEM` (`deploy/windows/tune-postgres.sql`): `listen_addresses = localhost`, `shared_buffers 512MB`, `effective_cache_size 3GB`, `work_mem 16MB`, `maintenance_work_mem 256MB`, `max_connections 50`, `random_page_cost 1.1`, log query > 1 detik | RAM 8 GB, NVMe, < 20 pengguna. Installer EDB default `listen_addresses = '*'`. Setelah upgrade 16 GB: `effective_cache_size 8GB` | Setelan default (memori kecil, menerima koneksi dari jaringan) |
 
 ## 3. Struktur Folder (target V2)
 
@@ -90,8 +93,13 @@ src/
 scripts/
 ├─ import-supabase.ts           # impor dump V1 → DB lokal
 └─ compare-counts.ts            # bandingkan jumlah baris sumber vs tujuan
-deploy/windows/                 # file WinSW, skrip backup, firewall (Tahap 6)
-deploy/windows/setup-db.sql     # buat role & database (D-20)
+deploy/windows/                 # server Windows (Tahap 6, docs/v2/DEPLOY-LOKAL.md)
+├─ setup-server.ps1             #   setup sekali: DB prod, setelan PostgreSQL, service WinSW, firewall
+├─ deploy.ps1 / rollback.ps1    #   rilis baru / kembali ke rilis sebelumnya (D-33)
+├─ status.ps1                   #   cek service, health, disk, log
+├─ common.ps1                   #   fungsi bersama
+├─ setup-db.sql                 #   role & database (D-20, D-32)
+└─ tune-postgres.sql            #   setelan PostgreSQL (D-34)
 .kysely-codegenrc.json          # opsi kysely-codegen (D-21)
 .gitattributes                  # LF untuk semua file teks (D-19)
 ```
@@ -176,9 +184,11 @@ Manajemen akun (`src/server/modules/users/service.ts`, Tahap 3c):
 
 ## 6. Keamanan
 
-- PostgreSQL: aplikasi memakai `smartwms_app` (hanya DML); migrasi memakai `smartwms_owner`; superuser `postgres` hanya untuk setup awal & backup (D-20).
+- PostgreSQL: aplikasi memakai role app (hanya DML); migrasi memakai role owner; superuser `postgres` hanya untuk setup awal & backup (D-20). Produksi punya role sendiri (D-32) dan hanya menerima koneksi `localhost` (D-34).
+- Service aplikasi berjalan sebagai **LocalService** (bukan admin/LocalSystem); hanya bisa membaca folder rilis & `smartwms.env`, menulis log & `.next\cache`.
 - Windows Firewall: inbound hanya port 3000, profil Domain/Private.
 - Rate limit sederhana di `/api/auth/login` (mis. 5 percobaan gagal / 10 menit per username).
-- Header keamanan dasar via `next.config.ts` (`X-Frame-Options`, `X-Content-Type-Options`).
+- Header keamanan via `next.config.ts` (Tahap 6a): `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`; header `X-Powered-By` dimatikan.
+- Route publik tanpa login hanya: login, register, logout, `/api/me` (mengembalikan 401 bila tanpa sesi) dan `/api/health` (status saja).
 - Hapus Surat Jalan (`DELETE /api/sj`) hanya **Super Admin** di API (sejak Tahap 4). V1 hanya menyembunyikan tombolnya di UI; API-nya terbuka untuk siapa pun.
-- Dependency `xlsx@0.18.5` (versi npm terakhir SheetJS) punya advisory keamanan. Status Tahap 4: **belum diganti** — hanya dipakai di browser (parse LPP `.xls` dari Oracle internal + export Excel), tidak di server. Ganti ke distribusi resmi SheetJS dijadwalkan bersama Tahap 6 (perlu uji ulang parser LPP & semua export).
+- Dependency `xlsx@0.18.5` (versi npm terakhir SheetJS) punya advisory keamanan. Status Tahap 4: **belum diganti** — hanya dipakai di browser (parse LPP `.xls` dari Oracle internal + export Excel), tidak di server. Ganti ke distribusi resmi SheetJS **ditunda ke Tahap 8** (bukan bagian server; perlu uji ulang parser LPP & semua export per halaman).

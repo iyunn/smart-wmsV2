@@ -26,7 +26,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 3c | Auth — manajemen user & ganti password | V2 | ✅ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) — satu sprint | V2 | ✅ |
 | 5 | Tema light & dark — token & fondasi (T1–T2) | V2 | ✅ |
-| 6 | Server Windows & backup | PC server | ⬜ |
+| 6a | Server Windows: DB produksi, service, deploy | PC server | 🚧 |
+| 6b | Backup harian + uji restore | PC server | ⬜ |
 | 7 | UAT & cutover | — | ⬜ |
 | 8 | Tema per halaman (T3) + Live Stock (T4) | V2 | ⬜ |
 | 9 | Improvement V2 (PRD §5.D) | V2 | ⏸ menunggu pilihan |
@@ -172,13 +173,28 @@ semua halaman jalan di PC dev dengan data hasil `db:import-v1`.
 **Selesai bila:** semua halaman terbaca di light & dark; tidak ada teks < 4,5:1 (audit otomatis).
 **STOP**
 
-## Tahap 6 — Server Windows & backup ⬜
-- Prasyarat: izin IT (PRD Q2 ✅), spesifikasi PC (Q4: i3 gen 12, NVMe 512 GB, RAM 8 GB — versi Windows dicek di awal Tahap 6)
-- PostgreSQL 18 (lewati install bila PC dev = PC server), buat DB `smartwms` + user `smartwms_app`, `listen_addresses='localhost'`
-- Build standalone, WinSW service, firewall port 3000, IP tetap (DHCP reservation)
-- Backup harian Task Scheduler + uji restore
-- Runbook: `docs/v2/DEPLOY-LOKAL.md` (instalasi, update versi, restore, troubleshooting)
-**Selesai bila:** server jalan setelah restart PC; restore teruji.
+## Tahap 6 — Server Windows & backup
+Dipecah dua: server jalan dulu (6a), baru backup diuji di atas server yang sudah jalan (6b).
+Prasyarat: izin IT (PRD Q2 ✅), PC: Windows 11, i3 gen 12, NVMe 512 GB, RAM 8 GB (Q4).
+Runbook: `docs/v2/DEPLOY-LOKAL.md`.
+
+### 6a — DB produksi, service, deploy 🚧
+- `deploy/windows/setup-server.ps1`: DB `smartwms` + role produksi sendiri (D-32), setelan PostgreSQL
+  (D-34, `listen_addresses = localhost`), service WinSW akun LocalService (D-12), firewall TCP 3000
+  Domain/Private, PC tidak sleep
+- `deploy.ps1` / `rollback.ps1` / `status.ps1`: clone terpisah → build → rilis → migrasi → junction →
+  health check + rollback otomatis (D-33)
+- `GET /api/health` (publik), pool DB lazy (build tanpa env), header keamanan di `next.config.ts`
+- IP tetap: DHCP reservation di router (manual, MAC dicetak script)
+**Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
+tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
+**STOP**
+
+### 6b — Backup & restore ⬜
+- `backup.ps1`: `pg_dump` harian via Task Scheduler, retensi 14 hari, salinan mingguan ke luar disk
+  server (lokasi ditentukan Fillian), dipanggil otomatis oleh `deploy.ps1` sebelum migrasi
+- `restore.ps1` + uji restore ke database terpisah; DEPLOY-LOKAL.md §8
+**Selesai bila:** backup terjadwal jalan; restore teruji.
 **STOP**
 
 ## Tahap 7 — UAT & cutover ⬜

@@ -101,6 +101,13 @@ const icons = {
       <rect x="17" y="5" width="3" height="13" />
     </svg>
   ),
+  palette: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+    </svg>
+  ),
 };
 
 const navItems: NavItem[] = [
@@ -125,6 +132,7 @@ const navItems: NavItem[] = [
     ],
   },
   { id: "admin-users", label: "Manajemen User", icon: icons.users, href: "/admin/users", adminOnly: true },
+  { id: "tema", label: "Warna Tampilan", icon: icons.palette, href: "/pengaturan/tema" },
 ];
 
 function getActiveId(pathname: string): string {
@@ -135,6 +143,7 @@ function getActiveId(pathname: string): string {
   if (pathname.startsWith("/sj/report"))   return "sj-report";
   if (pathname.startsWith("/sj/pendingan")) return "sj-pendingan";
   if (pathname.startsWith("/admin/users")) return "admin-users";
+  if (pathname.startsWith("/pengaturan/tema")) return "tema";
   if (pathname.startsWith("/sj/templates")) return "sj-template";
   if (pathname.startsWith("/sj"))          return "sj";
   if (pathname.startsWith("/stock/live"))   return "stock-live";

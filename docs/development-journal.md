@@ -3868,3 +3868,7 @@ pratinjau langsung (`--accent` & `--brand-50` turunan berubah), simpan → local
 lain sudah berwarna saat `domcontentloaded` (tanpa kedipan), perangkat lain (localStorage kosong)
 ikut dari DB, `?reset-theme` menampilkan bawaan + banner, pindah halaman tanpa simpan kembali ke
 tersimpan, 0 error console.
+
+### Tahap 9a — tambahan
+Fillian tidak menemukan menu warna (hanya ikon palet kecil di Topbar) → menu **Warna Tampilan** ditambah
+di Sidebar (semua user, item aktif saat di `/pengaturan/tema`).

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/server/db";
+import { type CustomTheme, sanitizeCustomTheme } from "@/lib/theme/custom";
 import { sessionTtlMs } from "./policy";
 import { generateSessionToken, hashSessionToken, isWellFormedToken } from "./tokens";
 
@@ -20,6 +21,8 @@ export interface SessionUser {
   role: "super_admin" | "admin";
   status: "pending" | "active" | "rejected";
   theme: "dark" | "light";
+  /** Warna custom per user (null = tema bawaan) — PRD D10 */
+  themeCustom: CustomTheme | null;
   mustChangePassword: boolean;
 }
 
@@ -56,7 +59,7 @@ export async function validateSession(
     .innerJoin("app_users as u", "u.id", "s.user_id")
     .select([
       "s.expires_at", "u.id", "u.email", "u.username", "u.nik", "u.role", "u.status", "u.theme",
-      "u.must_change_password",
+      "u.theme_custom", "u.must_change_password",
     ])
     .where("s.id", "=", id)
     .executeTakeFirst();
@@ -89,6 +92,7 @@ export async function validateSession(
       role: row.role as SessionUser["role"],
       status: row.status as SessionUser["status"],
       theme: row.theme as SessionUser["theme"],
+      themeCustom: sanitizeCustomTheme(row.theme_custom),
       mustChangePassword: row.must_change_password,
     },
   };

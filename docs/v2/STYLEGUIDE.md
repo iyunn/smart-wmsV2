@@ -265,3 +265,22 @@ Semua di `src/app/globals.css`, urutan bagian 1–6 (komentar di file).
   dipakai halaman itu boleh dihapus — cek dengan `grep` dulu.
 - **Audit kontras otomatis** (Tahap 5): 14 halaman × 2 tema, area layar 1440×900 — 0 teks di bawah
   ambang AA (V1: ±600 di light, ±290 di dark). Tombol bergradasi dicek manual (teks putih ≥ 4,6:1).
+
+---
+
+## 13. Warna custom per user (Tahap 9a, ARCHITECTURE D-37)
+
+User bisa mengganti warna di **Warna tampilan** (`/pengaturan/tema`). Yang bisa diubah = token
+dasar di §2 (latar, kartu, panel, isian, kaca, garis, judul, teks, keterangan, ikon samar, aksen,
+tombol utama, CGA1/2/3, ungu). Turunan dihitung otomatis di `:root.theme-custom` (globals.css):
+
+| Turunan | Rumus |
+|---|---|
+| `brand-50/100/200` | aksen 12% / 22% / 38% di atas `surface` |
+| `brand-500` / `brand-700` | tombol utama / aksen |
+| `*-50` status | warna status 12% di atas `surface` |
+| Palet lama `solid`/`deep` | warna dasar dicampur hitam 75% / 60% |
+| Gradasi latar | aksen 9% (kiri atas) + `langit` (kanan bawah) di atas `bg` |
+
+Aturan untuk kode baru tetap sama (§12): pakai token, bukan warna hardcoded — warna hardcoded
+tidak ikut tema custom. Kontras tidak dipaksa (pilihan user), tapi tema **bawaan** tetap wajib AA.

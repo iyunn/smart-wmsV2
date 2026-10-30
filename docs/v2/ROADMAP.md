@@ -26,11 +26,12 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 3c | Auth — manajemen user & ganti password | V2 | ✅ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) — satu sprint | V2 | ✅ |
 | 5 | Tema light & dark — token & fondasi (T1–T2) | V2 | ✅ |
-| 6a | Server Windows: DB produksi, service, deploy | PC server | 🚧 deploy ✅ |
-| 6b | Backup harian + uji restore + manual admin | PC server | 🚧 |
+| 6a | Server Windows: DB produksi, service, deploy | PC server | 🚧 sisa uji restart & rollback |
+| 6b | Backup harian + uji restore + manual admin | PC server | ✅ (luar disk menunggu) |
 | 7 | UAT & cutover | — | ⬜ |
 | 8 | Tema per halaman (T3) + Live Stock (T4) | V2 | ⬜ |
-| 9 | Improvement V2 (PRD §5.D) | V2 | ⏸ menunggu pilihan |
+| 9a | Improvement D10: warna tampilan custom | V2 | 🚧 |
+| 9 | Improvement V2 lain (PRD §5.D) | V2 | ⏸ menunggu pilihan |
 
 Branch kerja di repo V2: `main`. Fitur besar boleh pakai branch sementara (`feat/...`) lalu merge.
 
@@ -186,14 +187,15 @@ Runbook: `docs/v2/DEPLOY-LOKAL.md`.
   health check + rollback otomatis (D-33)
 - `GET /api/health` (publik), pool DB lazy (build tanpa env), header keamanan di `next.config.ts`
 - ✅ 30 Okt: setup + deploy pertama sukses di PC (rilis `20261030-133805-fc70454`, health OK)
-- Uji pertama lewat dongle Wi-Fi internet (Public, Ethernet dimatikan) → port 3000 memang tertutup.
-  Sisa: aktifkan Ethernet LAN kantor (Private), uji akses dari PC lain, restart PC
+- ✅ LAN: Ethernet profil Private, `http://192.168.20.27:3000` lancar dari PC lain; data V1 diimpor ke
+  `smartwms` (`db:import-v1` dengan `migrate.env` produksi)
+- Sisa: restart PC tanpa login, `rollback.ps1` + deploy ulang, DHCP reservation MAC Ethernet
   tanpa login, deploy kedua + rollback; DHCP reservation
 **Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
 tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 **STOP**
 
-### 6b — Backup, restore, manual admin 🚧
+### 6b — Backup, restore, manual admin ✅
 - `backup.ps1` (D-35): `pg_dump` custom, verifikasi, retensi 14 hari, salinan luar disk mingguan;
   dipanggil `deploy.ps1` sebelum migrasi
 - `setup-backup.ps1`: Task Scheduler harian 18:30 (SYSTEM, jalan saat PC menyala bila terlewat)
@@ -202,7 +204,10 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 - `setup-viewer.ps1`: akun database baca-saja untuk pgAdmin (D-36)
 - `status.ps1`: umur backup & salinan luar disk; URL per adapter (Public = tertutup), peringatan bila tidak ada jaringan Private/Domain
 - `docs/v2/MANUAL-ADMIN-SERVER.md`: manual harian admin server; DEPLOY-LOKAL §8–9
-- Menunggu Fillian: lokasi **salinan luar disk** (hardisk eksternal disarankan)
+- ✅ 30 Okt di PC: deploy `7b183a5` + backup predeploy (1,4 MB), task harian OK, uji restore 17 tabel
+  identik dengan produksi, akun viewer dibuat
+- Folder backup dipindah ke `D:\backup-database` (permintaan Fillian; partisi D: — bukan luar disk)
+- Menunggu: **salinan luar disk** (hardisk eksternal / PC lain)
 **Selesai bila:** backup terjadwal jalan (hasil 0x0); uji restore lolos; salinan luar disk terisi.
 **STOP**
 
@@ -221,5 +226,21 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 - **T4:** Live Stock terakhir, uji di resolusi TV
 **STOP per halaman**
 
-## Tahap 9 — Improvement V2 ⏸
-Menunggu pilihan Fillian dari PRD §5.D. Setiap improvement mendapat sub-tahap sendiri di sini.
+## Tahap 9 — Improvement V2
+Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
+
+### 9a — Warna tampilan custom (PRD D10) 🚧
+- Halaman `/pengaturan/tema` (ikon palet di Topbar): 18 warna dasar tema terang & gelap bebas diubah
+  (color picker + kode hex), pratinjau langsung di seluruh aplikasi, simpan/batal/semua ke bawaan,
+  info keterbacaan (hanya info, tidak membatasi)
+- Warna turunan dihitung CSS (`:root.theme-custom`, color-mix) — tanpa CSS/JS tambahan per halaman
+- Migrasi `0003_theme_custom` (`app_users.theme_custom jsonb`), `PATCH/GET /api/me`, anti-flash
+- Jalan keluar: `/pengaturan/tema?reset-theme`
+**Selesai bila:** warna tersimpan & ikut antar-perangkat, tanpa kedipan saat halaman dibuka.
+**STOP**
+
+### 9b — Pemilih warna lanjutan (rencana)
+Roda warna, preset tema, ekspor/impor tema, edit warna turunan satu per satu.
+
+### Lainnya ⏸
+Menunggu pilihan Fillian dari PRD §5.D.

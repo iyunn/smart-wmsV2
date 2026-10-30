@@ -58,6 +58,8 @@
 
   /* Aksen & status */
   --accent:        #1F4FD1;
+  --accent-solid:  #2F6FE8;   /* isi tombol utama */
+  --plum:          #5A3A98;   /* aksen kedua (LPP) */
   --accent-soft:   #EEF4FF;
   --info:          #2660DC;
   --cga1:          #256647;   /* 4,5:1+ juga di atas tint hijau */
@@ -114,6 +116,8 @@
   --faint:         #6E645A;
 
   --accent:        #96B4F4;
+  --accent-solid:  #3F6FD8;
+  --plum:          #C2A8EB;
   --accent-soft:   #1D2538;
   --info:          #86A7F0;
   --cga1:          #86C9A2;
@@ -146,6 +150,60 @@
     radial-gradient(60rem 40rem at 0% 0%, rgb(214 150 90 / 0.07), transparent 60%),
     radial-gradient(60rem 40rem at 100% 100%, rgb(80 120 210 / 0.09), transparent 60%),
     linear-gradient(160deg, #181513 0%, #161412 55%, #13161C 100%);
+}
+
+/* ── 2b. Tema custom per user (PRD D10, ARCHITECTURE D-37) ───────────────────
+   Aktif bila <html> ber-class `theme-custom`. Warna DASAR (bg, surface, text, accent, cga1…)
+   dipasang sebagai inline style di <html> oleh src/lib/theme/custom.ts; semua warna TURUNAN
+   dihitung di sini dari warna dasar → user cukup memilih ±18 warna, seluruh app ikut.
+   ────────────────────────────────────────────────────────────────────────── */
+:root.theme-custom {
+  --text-dim:      var(--text-muted);
+  --border-strong: color-mix(in oklab, var(--border) 50%, var(--line-strong));
+  --info:          var(--accent);
+  --accent-soft:   var(--brand-50);
+  --ink:           var(--text-strong);
+
+  --brand-50:  color-mix(in oklab, var(--accent) 12%, var(--surface));
+  --brand-100: color-mix(in oklab, var(--accent) 22%, var(--surface));
+  --brand-200: color-mix(in oklab, var(--accent) 38%, var(--surface));
+  --brand-500: var(--accent-solid);
+  --brand-600: color-mix(in oklab, var(--accent-solid) 50%, var(--accent));
+  --brand-700: var(--accent);
+  --brand-800: color-mix(in oklab, var(--accent) 75%, var(--text-strong));
+
+  --success-50:  color-mix(in oklab, var(--cga1) 12%, var(--surface));
+  --success-600: color-mix(in oklab, var(--cga1) 85%, var(--surface));
+  --success-700: var(--cga1);
+  --warning-50:  color-mix(in oklab, var(--cga2) 12%, var(--surface));
+  --warning-100: color-mix(in oklab, var(--cga2) 22%, var(--surface));
+  --warning-500: color-mix(in oklab, var(--cga2) 80%, var(--surface));
+  --warning-700: var(--cga2);
+  --danger-50:   color-mix(in oklab, var(--cga3) 12%, var(--surface));
+  --danger-500:  color-mix(in oklab, var(--cga3) 85%, var(--surface));
+  --danger-700:  var(--cga3);
+  --plum-50:     color-mix(in oklab, var(--plum) 12%, var(--surface));
+  --plum-500:    color-mix(in oklab, var(--plum) 70%, #000000);
+  --plum-700:    var(--plum);
+
+  /* Palet lama (cyan/emerald/amber/rose/violet di kode V1) */
+  --legacy-brand-tint:   var(--brand-50);   --legacy-brand-text:   var(--accent);
+  --legacy-brand-solid:  var(--accent-solid); --legacy-brand-deep: color-mix(in oklab, var(--accent-solid) 80%, #000000);
+  --legacy-success-tint: var(--success-50); --legacy-success-text: var(--cga1);
+  --legacy-success-solid: color-mix(in oklab, var(--cga1) 75%, #000000); --legacy-success-deep: color-mix(in oklab, var(--cga1) 60%, #000000);
+  --legacy-warning-tint: var(--warning-50); --legacy-warning-text: var(--cga2);
+  --legacy-warning-solid: color-mix(in oklab, var(--cga2) 75%, #000000); --legacy-warning-deep: color-mix(in oklab, var(--cga2) 60%, #000000);
+  --legacy-danger-tint:  var(--danger-50);  --legacy-danger-text:  var(--cga3);
+  --legacy-danger-solid: color-mix(in oklab, var(--cga3) 75%, #000000); --legacy-danger-deep: color-mix(in oklab, var(--cga3) 60%, #000000);
+  --legacy-plum-tint:    var(--plum-50);    --legacy-plum-text:    var(--plum);
+  --legacy-plum-solid:   var(--plum-500);   --legacy-plum-deep:    color-mix(in oklab, var(--plum) 55%, #000000);
+  --legacy-neutral-surface: var(--surface-2); --legacy-neutral-text: var(--text);
+  --legacy-neutral-muted: var(--text-muted); --legacy-neutral-strong: var(--text-strong);
+
+  --backdrop-image:
+    radial-gradient(60rem 40rem at 0% 0%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 60%),
+    radial-gradient(60rem 40rem at 100% 100%, color-mix(in oklab, var(--langit) 70%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg) 50%, var(--langit) 100%);
 }
 
 /* ── 3. Utility class resmi ─────────────────────────────────────────────────
@@ -414,7 +472,9 @@
 [class~="from-fuchsia-400"],
 [class~="from-fuchsia-500"],
 [class~="bg-fuchsia-500"],
-[class~="bg-fuchsia-600"] {
+[class~="bg-fuchsia-600"],
+[class~="from-brand-500"], [class~="bg-brand-500"], [class~="bg-brand-600"], [class~="bg-brand-700"],
+[class~="bg-success-600"], [class~="bg-success-700"], [class~="bg-danger-500"], [class~="bg-danger-700"], [class~="bg-plum-500"] {
     --color-white: #FFFFFF;
     --fg-body: rgb(255 255 255 / 0.92); --fg-soft: rgb(255 255 255 / 0.85);
     --fg-muted: rgb(255 255 255 / 0.80); --fg-faint: rgb(255 255 255 / 0.70);

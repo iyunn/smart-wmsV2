@@ -16,7 +16,7 @@
 | Database | Windows Service **postgresql-x64-18**, database `smartwms` |
 | Folder server | `C:\SmartWMS` (jangan diubah manual) |
 | Folder repo (script) | `D:\BABAYAGA\HMM\project\smart-wmsV2` |
-| Backup | `C:\SmartWMS\backups` + salinan luar disk (lihat §7) |
+| Backup | `D:\backup-database` (di server ini; bawaan `C:\SmartWMS\backups`) + salinan luar disk (lihat §7) |
 | Log | `C:\SmartWMS\logs` |
 
 **Aturan emas:** server = PC yang harus menyala selama jam kerja. Jangan dimatikan paksa (cabut
@@ -139,7 +139,7 @@ Database `smartwms_dev` adalah database **development** — bukan data yang dipa
 ## 7. Backup
 
 ### 7.1 Yang berjalan otomatis
-- Setiap hari jam **18:30** (bila PC mati, begitu PC menyala) → `C:\SmartWMS\backups`, disimpan 14 hari
+- Setiap hari jam **18:30** (bila PC mati, begitu PC menyala) → folder backup (`D:\backup-database`), disimpan 14 hari
 - Seminggu sekali disalin ke **luar disk** (hardisk eksternal / folder lain) bila tujuannya terhubung
 - Setiap update aplikasi (`deploy.ps1`) → backup `predeploy-...` sebelum database diubah
 
@@ -169,9 +169,9 @@ tabel terbaca; angka boleh sedikit beda bila ada input setelah jam backup.
 ### 7.5 Mengembalikan data (restore produksi) — keadaan darurat
 Misalnya data terhapus massal atau rusak. **Semua input sesudah waktu backup akan hilang.**
 1. Beri tahu pengguna untuk berhenti input.
-2. Pilih file di `C:\SmartWMS\backups` (nama berisi tanggal & jam, mis. `smartwms_20261030-183000_harian.dump`).
+2. Pilih file di `D:\backup-database` (nama berisi tanggal & jam, mis. `smartwms_20261030-183000_harian.dump`).
 3. ```powershell
-   powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -Production -File C:\SmartWMS\backups\<nama-file>.dump
+   powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -Production -File D:\backup-database\<nama-file>.dump
    ```
 4. Ketik `RESTORE` saat diminta, lalu password `postgres`.
 5. Script membuat backup pengaman dulu, mematikan aplikasi, memulihkan data, menyalakan lagi.
@@ -196,6 +196,13 @@ update app_users set role = 'super_admin', status = 'active' where username = 'n
 Setelah bisa masuk, reset password akun yang lupa lewat Manajemen User.
 
 ---
+
+### 8.1 Warna tampilan pengguna
+Setiap pengguna bisa mengatur warnanya sendiri (ikon palet di kanan atas → **Warna tampilan**).
+Bila seorang pengguna membuat warna yang membuat layarnya tidak terbaca, minta dia membuka
+`http://<IP-server>:3000/pengaturan/tema?reset-theme` lalu menekan **Kembalikan ke bawaan**.
+Bisa juga dari database (§6.2): `update app_users set theme_custom = null where username = 'nama';`
+(berlaku setelah pengguna memuat ulang halaman).
 
 ## 9. Update aplikasi & membatalkannya
 
@@ -242,7 +249,7 @@ Saat melapor masalah ke developer, sertakan output `status.ps1` dan isi `SmartWM
 
 1. Siapkan PC (bisa PC lain): instal **PostgreSQL 18**, **Node.js 24 LTS**, **Git for Windows**.
 2. Clone repo / salin folder repo, lalu ikuti DEPLOY-LOKAL §3.2–3.3 (`setup-server.ps1`, `deploy.ps1`).
-3. Ambil backup terbaru dari **salinan luar disk** (atau `C:\SmartWMS\backups` bila disk lama masih
+3. Ambil backup terbaru dari **salinan luar disk** (atau `D:\backup-database` bila disk lama masih
    terbaca), lalu restore produksi (§7.5).
 4. `setup-backup.ps1` (dengan `-OffsiteDir`), `setup-viewer.ps1` bila perlu.
 5. Perbarui DHCP reservation dengan MAC PC baru → alamat untuk pengguna tetap sama.

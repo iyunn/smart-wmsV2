@@ -4,6 +4,7 @@ import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionContext";
 import { ThemeProvider } from "@/components/ThemeContext";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme/custom";
 
 export const metadata: Metadata = {
   title: "SmartWMS — Smart Asset Monitoring & Reconciliation",
@@ -16,15 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className="h-full antialiased">
+    // suppressHydrationWarning: class & style <html> diubah skrip tema sebelum React hydrate
+    <html lang="id" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        {/* Anti-flash: apply tema dari localStorage cache sebelum React mount.
-            DB tetap sumber kebenaran (di-sync oleh ThemeProvider setelah login). */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('swms-theme');if(t!=='light')t='dark';document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`,
-          }}
-        />
+        {/* Anti-flash: mode + warna custom dari cache localStorage dipasang sebelum React mount.
+            DB tetap sumber kebenaran (disinkronkan ThemeProvider setelah profil dimuat). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>

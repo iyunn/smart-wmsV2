@@ -3827,3 +3827,44 @@ script: dump sebagai owner produksi (`pg_restore --list` 17 TABLE DATA) → rest
 role app bisa SELECT & INSERT, `timezone` UTC. Viewer: SELECT jalan, DELETE ditolak (read-only)
 dan tetap ditolak walau read-only dimatikan (permission denied). Bagian khusus Windows (Task
 Scheduler, ACL, service) diuji di PC.
+
+# 30 Oktober 2026 — Tahap 6b di PC, LAN Ethernet, data V1 ke produksi, Tahap 9a (warna custom)
+
+### Tahap 6a/6b di PC
+- LAN: tes awal 6a memakai dongle Wi-Fi internet (Public, Ethernet dimatikan) — port 3000 memang
+  tertutup di sana. Setelah Ethernet aktif (profil Private): `http://192.168.20.27:3000` lancar dari PC lain.
+- Data: produksi `smartwms` diisi dari Supabase dengan
+  `node --env-file=.env.local --env-file=C:\SmartWMS\config\migrate.env --import tsx scripts/import-v1.ts --confirm smartwms`
+  (file env terakhir menang → tujuan = role owner produksi; dicek dulu tanpa `--confirm`).
+- 6b: deploy `7b183a5` (backup predeploy 1,4 MB, tidak ada migrasi baru), task harian OK, uji restore
+  17 tabel identik, akun viewer dibuat, `status.ps1` Ethernet Private + backup hijau.
+- Folder backup → `D:\backup-database` (permintaan Fillian). Catatan: D: kemungkinan partisi NVMe yang
+  sama → bukan "luar disk"; salinan luar disk tetap perlu hardisk eksternal / PC lain.
+[KEAMANAN] Password akun viewer sempat tertempel di chat (output `setup-viewer.ps1`) → diganti dengan
+`setup-viewer.ps1 -NewPassword`. Risiko kecil (PostgreSQL hanya localhost, akun baca-saja), tapi aturan
+tetap: output yang berisi password tidak ditempel ke chat.
+[SISA 6a] Restart PC tanpa login, rollback + deploy ulang, DHCP reservation.
+
+### Tahap 9a — warna tampilan custom (PRD D10, ARCHITECTURE D-37)
+Fillian ingin warna bebas tanpa batasan ("user tidak mungkin memilih warna yang tidak nyaman").
+- `src/lib/theme/custom.ts`: 18 warna dasar + bawaan per mode, sanitasi, diff dari bawaan, terapkan ke
+  `<html>`, skrip anti-flash, rasio kontras. `globals.css`: token `--accent-solid` & `--plum` baru,
+  blok `:root.theme-custom` (±50 turunan via `color-mix`), class isi solid token (`from-brand-500`,
+  `bg-danger-700`, …) → teks putih sungguhan.
+- Migrasi `0003_theme_custom` + codegen; `SessionUser.themeCustom`; `GET/PATCH /api/me` (zod strict,
+  hanya `#RRGGBB`); `ThemeContext` (previewCustom, saveCustom; DB disinkronkan sekali per muat).
+- Halaman `/pengaturan/tema` + ikon palet di Topbar: editor per kelompok (color picker + hex + ikon
+  kembalikan per warna), tab terang/gelap, contoh tampilan, info keterbacaan, simpan / batalkan /
+  semua ke bawaan, keluar tanpa simpan = kembali ke tersimpan, mode penyelamatan `?reset-theme`.
+- Live Stock memakai token yang sama → ikut warna custom (belum diuji khusus di layar TV).
+
+[KEPUTUSAN] Tanpa batasan kontras sesuai permintaan; halaman hanya memberi info "jelas / kurang jelas".
+Jalan keluar disediakan karena warna teks = warna latar akan membuat tombol simpan pun tak terbaca.
+[VERIFIKASI] `tsc` 0 error; Vitest 21/21 (6 test baru: nilai bawaan = globals.css, setiap warna dasar
+dipakai, sanitasi menolak kunci asing/`url(...)`/bukan hex, diff, kontras, skrip anti-flash valid);
+`next build` sukses (`/pengaturan/tema`). API: simpan 200 (kunci asing dibuang), hex salah/`;url()` 400,
+kunci tak dikenal 400, kosong 400, `null` → kolom NULL, tanpa sesi 401. Browser (Playwright):
+pratinjau langsung (`--accent` & `--brand-50` turunan berubah), simpan → localStorage + DB, halaman
+lain sudah berwarna saat `domcontentloaded` (tanpa kedipan), perangkat lain (localStorage kosong)
+ikut dari DB, `?reset-theme` menampilkan bawaan + banner, pindah halaman tanpa simpan kembali ke
+tersimpan, 0 error console.

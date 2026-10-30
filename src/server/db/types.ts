@@ -38,6 +38,7 @@ export interface AppUsers {
   role: Generated<string>;
   status: Generated<string>;
   theme: Generated<string>;
+  theme_custom: Json | null;
   updated_at: Generated<Timestamp>;
   username: string;
 }

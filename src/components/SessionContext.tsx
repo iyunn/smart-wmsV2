@@ -12,6 +12,7 @@
  * ke /ganti-password dari halaman mana pun. Server juga menolak API data untuk akun ini.
  */
 
+import type { CustomTheme } from "@/lib/theme/custom";
 import {
   createContext, useContext, useEffect, useState, useCallback,
   type ReactNode,
@@ -29,6 +30,7 @@ export interface UserProfile {
   role: "super_admin" | "admin";
   status: "pending" | "active" | "rejected";
   theme?: "dark" | "light";
+  themeCustom?: CustomTheme | null;
   mustChangePassword?: boolean;
 }
 

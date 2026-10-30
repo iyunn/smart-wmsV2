@@ -121,7 +121,8 @@ Item baru dari Fillian ditambahkan di sini.
 | D6 | Dashboard placeholder & Recent Activity diaktifkan | Known Issues |
 | D7 | Opsi jenis/kategori/satuan dari master DB, bukan hardcoded | Accepted Technical Debt |
 | D8 | Audit log aktivitas user (siapa mengubah apa) | Usulan baru, perlu konfirmasi |
-| D9 | Halaman status server (umur backup terakhir, ruang disk) | Usulan baru, perlu konfirmasi |
+| D9 | Halaman status server (umur backup terakhir, ruang disk) | Usulan baru, perlu konfirmasi — sebagian sudah ada di `status.ps1` (Tahap 6) |
+| **D10** | **Warna tampilan custom per user** — semua warna dasar tema terang & gelap bebas diubah (tanpa batasan), disimpan di akun, ikut antar-perangkat | ✅ **Dipilih Fillian (30 Okt 2026)**, dikerjakan sebelum cutover (terisolasi di lapisan tampilan) — ROADMAP Tahap 9a |
 
 ## 6. Kebutuhan Non-Fungsional
 

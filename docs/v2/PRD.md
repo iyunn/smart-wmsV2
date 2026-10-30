@@ -141,7 +141,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 
 - [ ] Semua modul §5.B lolos checklist UAT di server lokal
 - [x] Setiap Route Handler `/api/*` (kecuali login/register/logout/me, dan `/api/health` yang hanya berisi status) memanggil `requireUser()`/`requireSuperAdmin()` — dicek dengan pencarian kode (Tahap 4: 29 route, uji HTTP tanpa sesi → 401)
-- [ ] Jumlah baris semua tabel identik dengan Supabase pada saat freeze
+- [ ] ~~Jumlah baris semua tabel identik dengan Supabase pada saat freeze~~ → diganti (30 Okt, ARCHITECTURE D-38): data V1 sudah diimpor 30 Okt dan V2 sudah dipakai; kriteria baru: tidak ada baris V1 sesudah impor yang belum ada di `smartwms` (atau V1 tidak dipakai lagi sejak impor)
 - [ ] Semua akun bisa login (atau sudah di-reset Super Admin)
 - [ ] Restore dari backup berhasil diuji minimal 1 kali
 - [ ] Service bertahan setelah PC di-restart

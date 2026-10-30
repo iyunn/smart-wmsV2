@@ -19,6 +19,11 @@ import { from as copyFrom, to as copyTo } from "pg-copy-streams";
 //
 // Wajib `--confirm <nama_database_tujuan>` karena seluruh isi tabel tujuan DIHAPUS dulu.
 //
+// PENGAMAN DATA (ARCHITECTURE D-38) — impor = TRUNCATE, jadi data yang dibuat di V2 akan HILANG:
+//   1. Database yang punya kunci `app_settings.import_v1_locked` (produksi, dipasang deploy.ps1)
+//      SELALU ditolak, apa pun flag-nya. Melepas kunci = SQL manual yang disengaja (DEPLOY-LOKAL §3.4).
+//   2. Database tujuan yang sudah berisi data ditolak kecuali ditambah `--replace-existing-data`.
+//
 // Akun (Tahap 3a): public.profiles + hash password dari auth.users (Supabase) digabung menjadi
 // app_users (id sama). Akun tanpa password di Supabase diberi hash "!" (tidak bisa login) +
 // must_change_password, menunggu reset oleh Super Admin. Semua sesi lokal ikut dihapus.
@@ -41,7 +46,8 @@ const TABLES = [
   "staging_area",
 ] as const;
 
-const IGNORED_TARGET_TABLES = new Set(["kysely_migration", "kysely_migration_lock"]);
+/** Tabel lokal yang tidak disentuh impor (app_settings berisi kunci impor — tidak boleh di-TRUNCATE). */
+const IGNORED_TARGET_TABLES = new Set(["kysely_migration", "kysely_migration_lock", "app_settings"]);
 
 /** Tabel V1 yang tidak disalin 1:1 (ditangani khusus) dan tabel V2 yang tidak ada di V1. */
 const SOURCE_ONLY = ["profiles"];
@@ -129,6 +135,21 @@ async function main() {
       );
     }
 
+    // ── Pengaman 1: kunci impor (database produksi) ──────────────────────
+    const hasSettings = (await target.query<{ t: string | null }>("select to_regclass('public.app_settings')::text as t")).rows[0].t;
+    if (hasSettings) {
+      const lock = await target.query<{ value: unknown; updated_at: Date }>(
+        "select value, updated_at from app_settings where key = 'import_v1_locked'",
+      );
+      if (lock.rows.length) {
+        throw new Error(
+          `Database "${targetDb}" TERKUNCI untuk impor V1 (sejak ${lock.rows[0].updated_at.toISOString()}).\n` +
+            "  Database ini sudah berisi data baru V2 — impor akan MENGHAPUS semuanya (TRUNCATE).\n" +
+            "  Impor dibatalkan. Tidak ada yang diubah. Lihat docs/v2/DEPLOY-LOKAL.md §3.4.",
+        );
+      }
+    }
+
     // Kedua sisi pakai UTC agar representasi teks timestamptz identik (checksum & COPY).
     await source.query("set timezone to 'UTC'");
     await target.query("set timezone to 'UTC'");
@@ -161,6 +182,21 @@ async function main() {
       if (missing.length) problems.push(`app_users: kolom ${missing.join(", ")} belum ada di lokal`);
     }
     if (problems.length) throw new Error("Skema tidak cocok:\n  - " + problems.join("\n  - "));
+
+    // ── Pengaman 2: database tujuan sudah berisi data ───────────────────────
+    const counts = await target.query<{ t: string; n: string }>(
+      [...TABLES, "app_users"].map((t) => `select '${t}' as t, count(*)::text as n from public.${q(t)}`).join(" union all "),
+    );
+    const filled = counts.rows.filter((r) => Number(r.n) > 0);
+    if (filled.length && !process.argv.includes("--replace-existing-data")) {
+      throw new Error(
+        `Database "${targetDb}" sudah berisi data:\n` +
+          filled.map((r) => `    ${r.t.padEnd(20)} ${r.n.padStart(7)} baris`).join("\n") +
+          "\n  Impor akan MENGHAPUS semua baris ini lalu menggantinya dengan isi Supabase.\n" +
+          "  Bila memang itu yang diinginkan (mis. database dev), tambahkan --replace-existing-data.\n" +
+          "  Impor dibatalkan. Tidak ada yang diubah.",
+      );
+    }
 
     // Email/username wajib unik (tanpa beda huruf besar/kecil) karena dipakai untuk login.
     const dupes = await source.query<{ k: string; v: string; n: string }>(`

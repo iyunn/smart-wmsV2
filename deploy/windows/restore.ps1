@@ -111,6 +111,9 @@ try {
   Invoke-Pg 'pg_restore.exe' $restoreArgs $conn.Password 'pg_restore'
   Invoke-Pg 'psql.exe' ($pgArgs + @('-c', "alter database $target set timezone to 'UTC'")) $pgPw 'Setelan zona waktu'
   Write-Ok 'Isi backup dipulihkan'
+  # Backup lama (sebelum migrasi 0004) tidak membawa kunci -> pasang lagi (D-38)
+  try { $lock = Set-ImportLock "restore $($item.Name)"; Write-Ok "Kunci impor V1 aktif ($lock)" }
+  catch { Write-Warn "Kunci impor V1 gagal dipasang: $($_.Exception.Message) - jalankan deploy.ps1" }
 }
 finally {
   Start-AppService

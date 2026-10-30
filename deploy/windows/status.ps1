@@ -37,6 +37,12 @@ if (-not ($lan | Where-Object { "$($_.Profile)" -ne 'Public' })) {
   Write-Warn "  Set-NetConnectionProfile -InterfaceAlias 'Ethernet' -NetworkCategory Private   (jangan untuk Wi-Fi umum)"
 }
 
+Write-Step 'Pengaman data'
+$ls = Get-ImportLockStatus
+if ($ls -match '^\d{4}-') { Write-Ok "Kunci impor V1 : aktif sejak $ls UTC (impor Supabase ditolak)" }
+elseif ($ls -eq 'tidak-terkunci' -or $ls -eq 'tidak-ada-tabel') { Write-Warn "Kunci impor V1 : BELUM AKTIF ($ls) - jalankan deploy.ps1" }
+else { Write-Warn "Kunci impor V1 : tidak bisa dicek ($ls)" }
+
 Write-Step 'Backup'
 $cfg = Read-EnvFile $SW.BackupEnv
 $bdir = $SW.Backups

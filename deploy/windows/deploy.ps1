@@ -113,6 +113,11 @@ try {
 }
 Pop-Location
 Write-Ok 'Migrasi database selesai'
+# Database produksi = sumber kebenaran; impor V1 (TRUNCATE) tidak boleh jalan di sini (D-38).
+# Gagal memasang kunci tidak menghentikan deploy (aplikasi sedang mati); import-v1.ts tetap menolak
+# database yang berisi data. status.ps1 memperingatkan bila kunci belum aktif.
+try { $lock = Set-ImportLock "deploy $commit"; Write-Ok "Kunci impor V1 aktif ($lock)" }
+catch { Write-Warn "Kunci impor V1 gagal dipasang: $($_.Exception.Message) - cek status.ps1" }
 
 Set-CurrentRelease $release
 Start-AppService

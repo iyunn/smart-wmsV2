@@ -210,6 +210,23 @@ function Get-PgOutput([string]$Exe, [string[]]$ArgumentList, [string]$Password, 
   } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
 }
 
+# Pasang kunci impor V1 di database produksi (ARCHITECTURE D-38, import-lock.sql). Idempoten.
+function Set-ImportLock([string]$LockedBy) {
+  $c = Get-DbConnection $SW.MigrateEnv 'DATABASE_URL_OWNER'
+  $out = Get-PgOutput 'psql.exe' @('-h', $c.Host, '-p', $c.Port, '-U', $c.User, '-d', $c.Db, '-X', '-q', '-At',
+    '-v', "locked_by=$LockedBy", '-f', (Join-Path $PSScriptRoot 'import-lock.sql')) $c.Password 'Kunci impor V1'
+  return ([string]($out | Select-Object -Last 1))
+}
+
+# Status kunci impor V1 (untuk status.ps1). Tanpa throw.
+function Get-ImportLockStatus {
+  try {
+    $c = Get-DbConnection $SW.MigrateEnv 'DATABASE_URL_OWNER'
+    $q = "select case when to_regclass('public.app_settings') is null then 'tidak-ada-tabel' else coalesce((select to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI') from public.app_settings where key = 'import_v1_locked'), 'tidak-terkunci') end"
+    return [string](Get-PgOutput 'psql.exe' @('-h', $c.Host, '-p', $c.Port, '-U', $c.User, '-d', $c.Db, '-X', '-Atc', $q) $c.Password 'Cek kunci impor')
+  } catch { return "error: $($_.Exception.Message)" }
+}
+
 function Read-PostgresPassword {
   $sec = Read-Host -AsSecureString 'Password superuser "postgres"'
   $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)

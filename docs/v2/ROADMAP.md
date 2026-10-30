@@ -189,6 +189,8 @@ Runbook: `docs/v2/DEPLOY-LOKAL.md`.
 - ✅ 30 Okt: setup + deploy pertama sukses di PC (rilis `20261030-133805-fc70454`, health OK)
 - ✅ LAN: Ethernet profil Private, `http://192.168.20.27:3000` lancar dari PC lain; data V1 diimpor ke
   `smartwms` (`db:import-v1` dengan `migrate.env` produksi)
+- ✅ Pengaman data (D-38): kunci `import_v1_locked` di `smartwms` dipasang `deploy.ps1`; `import-v1.ts`
+  menolak database berkunci / berisi data. **Sejak 30 Okt `smartwms` = sumber kebenaran — tidak ada impor ulang**
 - Sisa: restart PC tanpa login, `rollback.ps1` + deploy ulang, DHCP reservation MAC Ethernet
   tanpa login, deploy kedua + rollback; DHCP reservation
 **Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
@@ -213,7 +215,11 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 
 ## Tahap 7 — UAT & cutover ⬜
 - Checklist UAT per modul (PRD §5.B) di server lokal
-- Freeze input V1 (akhir pekan) → dump terakhir → import → compare-counts
+- ~~Freeze input V1 → dump terakhir → import → compare-counts~~ **dibatalkan 30 Okt (D-38):** `smartwms`
+  sudah berisi data V1 + input baru V2; impor ulang = TRUNCATE = data V2 hilang
+- Freeze input V1 **sesegera mungkin** (V2 sudah dipakai). Bila ada input V1 sesudah impor 30 Okt:
+  bandingkan per `id` (Supabase vs `smartwms`) dan salin **hanya baris yang belum ada** — tanpa TRUNCATE,
+  alat dibuat bila memang ada selisih
 - Pengguna pindah ke URL LAN
 - **Hari itu juga:** pause project Supabase (atau cabut akses `anon`) — celah V1 tidak ditutup di Tahap 0; dump terakhir disimpan sebagai cadangan
 - Matikan project Vercel V1; setelah masa cadangan, archive repo V1 (read-only)

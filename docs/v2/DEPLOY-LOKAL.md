@@ -90,11 +90,32 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\deploy.ps1
 Mengambil branch `main` dari GitHub (yang sudah di-push), build, membuat tabel di database
 `smartwms`, lalu menyalakan service. Pertama kali ±3–5 menit.
 
-### 3.4 Isi data
-Database produksi masih kosong. Selama V1 masih dipakai, data diisi saat **cutover** (Tahap 7) dengan
-`db:import-v1` ke database `smartwms`. Untuk mencoba lebih awal, daftar akun di `/register` lalu
-aktifkan lewat SQL (pgAdmin, database `smartwms`):
-`update app_users set status = 'active', role = 'super_admin' where username = '<nama>';`
+### 3.4 Isi data — impor V1 SATU KALI, lalu dikunci
+Database produksi `smartwms` diisi data V1 **satu kali** (sudah dilakukan 30 Okt 2026). Sejak itu
+`smartwms` adalah **sumber kebenaran**: input baru V2 hanya ada di sana.
+
+> ⛔ **JANGAN pernah menjalankan `db:import-v1` / `scripts/import-v1.ts` ke database `smartwms`.**
+> Impor mengosongkan (TRUNCATE) semua tabel lalu mengisinya dari Supabase → seluruh data yang
+> dibuat di V2 hilang. Perintah yang dulu dipakai (dengan `migrate.env` produksi) sekarang ditolak:
+
+Pengaman (ARCHITECTURE D-38), diuji di sandbox:
+1. **Kunci** `app_settings.import_v1_locked` di `smartwms`, dipasang otomatis `deploy.ps1` (setiap deploy)
+   dan `restore.ps1 -Production`. Skrip impor menolak database berkunci **apa pun flag-nya**.
+   Cek: `status.ps1` → bagian *Pengaman data*.
+2. Database tujuan yang **sudah berisi data** ditolak, kecuali `--replace-existing-data` (hanya untuk dev).
+3. Skrip impor **versi lama** (clone yang belum di-`git pull`) gagal di cek skema karena tabel
+   `app_settings` — sebelum ada yang dihapus.
+
+Mengisi ulang **database dev** dari Supabase tetap boleh:
+`npm run db:import-v1 -- --confirm smartwms_dev --replace-existing-data`
+
+Melepas kunci produksi **tidak disediakan sebagai perintah**. Bila suatu hari benar-benar perlu
+(mis. membangun ulang server dari nol dengan data Supabase), lakukan sebagai superuser setelah
+backup + salinan ke disk lain, dan catat di journal:
+`delete from app_settings where key = 'import_v1_locked';` — deploy berikutnya memasangnya lagi.
+
+Server baru yang kosong (tanpa data V1): daftar akun di `/register`, lalu aktifkan lewat SQL
+(database `smartwms`): `update app_users set status = 'active', role = 'super_admin' where username = '<nama>';`
 
 ### 3.5 Jaringan
 - **IP tetap:** di router kantor buat *DHCP reservation* untuk MAC yang dicetak `setup-server.ps1`

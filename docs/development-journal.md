@@ -3872,3 +3872,26 @@ tersimpan, 0 error console.
 ### Tahap 9a — tambahan
 Fillian tidak menemukan menu warna (hanya ikon palet kecil di Topbar) → menu **Warna Tampilan** ditambah
 di Sidebar (semua user, item aktif saat di `/pengaturan/tema`).
+
+### Pengaman data produksi — kunci impor V1 (ARCHITECTURE D-38)
+[BAHAYA] Fillian (30 Okt): `smartwms` sudah berisi data V1 **plus** cukup banyak input baru V2. Perintah
+impor produksi yang dipakai 30 Okt (`import-v1.ts --confirm smartwms` dengan `migrate.env`) masih bisa
+diulang kapan saja dan akan TRUNCATE semua tabel → data V2 hilang. `--confirm` saja tidak cukup.
+- Migrasi `0004_app_settings` (key/value jsonb, hanya role pemilik; role app & viewer dicabut).
+- `deploy/windows/import-lock.sql` + `Set-ImportLock` (common.ps1): pasang `import_v1_locked`
+  (idempoten, buat tabel bila belum ada) — dipanggil `deploy.ps1` setelah migrasi dan
+  `restore.ps1 -Production` setelah pg_restore (backup lama tidak membawa kunci).
+  `status.ps1` → bagian "Pengaman data".
+- `scripts/import-v1.ts`: (1) database berkunci → ditolak apa pun flag-nya; (2) database berisi data →
+  ditolak + jumlah baris per tabel, kecuali `--replace-existing-data`; `app_settings` tidak pernah di-TRUNCATE.
+- Docs: DEPLOY-LOKAL §3.4 ditulis ulang, MANUAL §3 & §6.2, ROADMAP 6a & Tahap 7, PRD §7.
+
+[KEPUTUSAN] Tahap 7 **tidak** lagi mengimpor ulang dari Supabase. `smartwms` = sumber kebenaran sejak
+30 Okt. Input V1 sesudah 30 Okt (bila ada) disalin selektif per `id` tanpa TRUNCATE.
+[VERIFIKASI] Sandbox (PG 16, `smartwms_dev`): migrasi 0004 up/down/up; role app → `permission denied`;
+impor tanpa flag ke DB berisi → ditolak + daftar tabel; dengan `--replace-existing-data` (tanpa kunci) →
+sukses 14 tabel; `import-lock.sql` dua kali → satu baris; impor berkunci + semua flag → ditolak;
+**skrip lama (commit 56843a1) di DB berkunci → gagal di cek skema**; jumlah baris sebelum = sesudah.
+Skenario restore dari backup sebelum 0004: `import-lock.sql` membuat tabel + kunci, lalu migrasi 0004
+(`if not exists`) tetap jalan. `tsc` 0 error; Vitest 21/21.
+[SISA] Fillian: konfirmasi apakah V1 masih dipakai input sesudah 30 Okt (menentukan perlu salin selektif).

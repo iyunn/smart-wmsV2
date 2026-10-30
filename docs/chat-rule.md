@@ -51,8 +51,17 @@ Kerja hotfix V1 → baca dari repo V1 (`.../smart-warehouse-management-system/ma
   Claude memberikannya sebagai perintah siap tempel `git commit -F - <<'MSG' … MSG` (bukan `-m "..."`
   dengan placeholder — commit `fc70454` sempat ber-judul "..." karena itu).
 - Selalu sebut **repo tujuan** (V1 atau V2) untuk setiap paket file.
-- Banyak file sekaligus → dikirim sebagai **zip berstruktur path repo**, di-extract di root repo:
-  `powershell.exe -NoProfile -Command 'Expand-Archive -Force "$env:USERPROFILE\Downloads\<nama>.zip" -DestinationPath .'`
+- Banyak file sekaligus → dikirim sebagai **zip berstruktur path repo**.
+- **Apply otomatis (WAJIB setiap kali mengirim zip):** Claude menyertakan blok perintah siap jalan —
+  Fillian cukup download zip lalu menjalankannya, **tanpa extract/copas manual**. Bentuk baku (bash MSYS2):
+  ```bash
+  cd /d/BABAYAGA/HMM/project/smart-wmsV2
+  powershell.exe -NoProfile -Command 'Expand-Archive -Force "$env:USERPROFILE\Downloads\<nama>.zip" -DestinationPath .'
+  git status --short
+  ```
+  Nama zip di perintah = nama file yang benar-benar dikirim; sebutkan hasil `git status` yang diharapkan
+  (jumlah file `M` / `??`). Urutan di balasan: tabel file → apply otomatis → commit message → langkah
+  deploy/tes (bila ada). Bila Fillian memakai PowerShell, berikan versi PowerShell dengan isi yang sama.
 - Output file selalu disajikan dalam tabel:
 
   | File Generated | Lokasi di Repo | Status |
@@ -187,7 +196,7 @@ Claude memberi ringkasan perubahan dokumen setiap kali update.
 - [ ] Logic kritis diverifikasi via `node -e` atau Vitest
 - [ ] File yang diedit sudah di-fetch ulang jika Fillian sudah commit
 - [ ] Tabel output + **repo tujuan** sudah ada
-- [ ] Perintah apply untuk bash MSYS2 + commit message sudah disiapkan
+- [ ] Blok **apply otomatis** (§2: `cd` + `Expand-Archive` nama zip yang benar + `git status --short`) + commit message sudah disiapkan
 - [ ] Tidak ada dead code / import yang tidak terpakai
 - [ ] Tidak ada secret / key di file
 - [ ] ROADMAP & journal sudah diupdate untuk tahap ini

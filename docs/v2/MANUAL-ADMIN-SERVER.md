@@ -49,8 +49,9 @@ Perintah script selalu diawali `powershell -ExecutionPolicy Bypass -File ...` �
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\windows\status.ps1
 ```
-Menampilkan: status kedua service, versi aplikasi yang jalan, alamat LAN, backup terakhir, salinan
-luar disk, sisa disk, dan 5 baris terakhir log error. Baris kuning (`!!`) = perlu perhatian.
+Menampilkan: status kedua service, versi aplikasi yang jalan, alamat LAN, **kunci impor V1**, backup
+terakhir, salinan luar disk, sisa disk, dan 5 baris terakhir log error. Baris kuning (`!!`) = perlu perhatian.
+"Kunci impor V1 : BELUM AKTIF" → jalankan `deploy.ps1` (§9) — kunci terpasang otomatis.
 
 ---
 
@@ -133,6 +134,11 @@ Ketik SQL lalu Enter, keluar dengan `\q`. **Sebelum mengubah data, buat backup m
 Jangan pernah menjalankan `DELETE`/`UPDATE` tanpa `WHERE`.
 
 Database `smartwms_dev` adalah database **development** — bukan data yang dipakai pengguna.
+
+> ⛔ **Jangan pernah menjalankan impor V1 (`db:import-v1` / `scripts/import-v1.ts`) ke `smartwms`.**
+> Impor mengosongkan semua tabel lalu mengisinya dari Supabase → semua data yang diinput di V2 hilang.
+> Skrip sudah menolaknya (kunci `import_v1_locked`, DEPLOY-LOKAL §3.4) — jangan mencoba mengakalinya,
+> dan jangan menghapus baris `import_v1_locked` di tabel `app_settings`.
 
 ---
 

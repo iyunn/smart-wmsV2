@@ -3779,3 +3779,51 @@ connect ke DB produksi & sebaliknya); migrasi 0001–0002 jalan dengan role owne
 standalone dijalankan persis seperti service (`node --env-file=… server.js`): `/api/health` 200
 berisi nama rilis, 503 `db: down` bila DB tak terjangkau, halaman & font self-host terlayani,
 API tanpa sesi 401, register menulis lewat role app produksi; header keamanan terkirim.
+
+# 30 Oktober 2026 — Tahap 6a diuji di PC, Tahap 6b (backup, restore, manual admin)
+
+### Tahap 6a — hasil di PC (Windows 11)
+`setup-server.ps1` + `deploy.ps1` sukses: rilis `20261030-133805-fc70454`, migrasi 0001–0002 di
+database `smartwms`, health OK, service `SmartWMS` & `postgresql-x64-18` Running/Automatic, deploy
+1,5 menit. Belum diuji: akses dari PC lain, restart tanpa login, deploy kedua + rollback.
+[TEMUAN] Uji pertama memakai dongle Wi-Fi internet (profil Public) dengan Ethernet dimatikan → firewall
+(Domain/Private) menutup port 3000 di jaringan itu — perilaku yang benar. Pengguna akan mengakses
+lewat **Ethernet LAN kantor** (profil Private/Domain); Wi-Fi internet tetap Public. Runbook diperbaiki
+(jangan ubah Wi-Fi umum jadi Private).
+[BUG DIPERBAIKI] `Get-LanAddress` hanya menampilkan adapter yang punya default gateway → LAN kantor
+tanpa gateway/internet tidak muncul di `status.ps1`/`deploy.ps1`. Kini semua adapter aktif ber-IPv4
+(kecuali 169.254.x); adapter Public ditandai "port tertutup".
+[TEMUAN] Drive C: 99,9 GB (bebas 21,3 GB) — cukup (backup DB < beberapa MB/hari), dipantau di `status.ps1`.
+[CATATAN] Commit `fc70454` berjudul "..." — instruksi sebelumnya memakai `git commit -m "..."` sebagai
+placeholder. Tidak di-amend (sudah di-push). chat-rule §2: commit message kini diberikan sebagai
+perintah `git commit -F - <<'MSG'` siap tempel.
+
+### Tahap 6b
+- **`backup.ps1`** (D-35): `pg_dump` custom → `.partial` → `pg_restore --list` → rename; retensi 14 hari
+  (3 terbaru selalu disimpan); salinan luar disk bila salinan terakhir ≥ 7 hari (retensi 56 hari);
+  `backup.log` + `last-backup.json`. `deploy.ps1` sudah memanggilnya sebelum migrasi.
+- **`setup-backup.ps1`**: `backup.env`, Task Scheduler "SmartWMS Backup Harian" 18:30, SYSTEM,
+  `StartWhenAvailable`, langsung menjalankan backup pertama. Script task = `C:\SmartWMS\src\…`
+  (ikut ter-update deploy).
+- **`restore.ps1`**: uji restore ke `smartwms_restore_test` + bandingkan jumlah baris per tabel;
+  `-Production` dengan konfirmasi `RESTORE`, backup pengaman, DB dibuat ulang via `setup-db.sql`.
+- **`setup-viewer.ps1` + `viewer.sql`** (D-36): role `smartwms_viewer` baca-saja untuk pgAdmin.
+- **`status.ps1`**: umur backup & salinan luar disk, jadwal task, URL per adapter, peringatan bila tidak ada jaringan Private/Domain.
+- **Dokumen:** `MANUAL-ADMIN-SERVER.md` (permintaan Fillian: manual admin — nyala/restart, cek,
+  masuk database, backup/restore, akun, log, jadwal perawatan, darurat ganti PC, lokasi rahasia);
+  DEPLOY-LOKAL §8–9.
+
+[GOTCHA] `pg_dump` tanpa `--create` tidak menyimpan setelan per-database (`ALTER DATABASE … SET
+timezone`, D-22) → restore memasang ulang `timezone = UTC`. Hak `CONNECT` database juga hilang saat
+DB dibuat ulang → restore produksi membuat DB lewat `setup-db.sql`; akun viewer perlu
+`setup-viewer.ps1` lagi.
+[GOTCHA] Task Scheduler berjalan sebagai SYSTEM → tujuan luar disk berupa folder jaringan harus
+memberi akses ke akun komputer (`NAMA-PC$`); hardisk eksternal lebih sederhana.
+
+[VERIFIKASI] Sandbox: 9 `.ps1` lolos parser PowerShell 7.4, ASCII; `Get-DbConnection` & query
+jumlah baris diuji lewat pwsh + psql. Alur PostgreSQL diuji dengan perintah yang sama dengan
+script: dump sebagai owner produksi (`pg_restore --list` 17 TABLE DATA) → restore ke DB uji
+(jumlah baris 17 tabel identik) → restore produksi (drop → `setup-db.sql` → restore → timezone):
+role app bisa SELECT & INSERT, `timezone` UTC. Viewer: SELECT jalan, DELETE ditolak (read-only)
+dan tetap ditolak walau read-only dimatikan (permission denied). Bagian khusus Windows (Task
+Scheduler, ACL, service) diuji di PC.

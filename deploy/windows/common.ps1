@@ -30,6 +30,10 @@ $SW.Backups    = "$($SW.Root)\backups"
 $SW.AppEnv     = "$($SW.Config)\smartwms.env"   # dibaca service (akun LocalService)
 $SW.MigrateEnv = "$($SW.Config)\migrate.env"    # hanya Administrator
 $SW.Secrets    = "$($SW.Config)\secrets.env"    # hanya Administrator
+$SW.BackupEnv  = "$($SW.Config)\backup.env"     # setelan backup (setup-backup.ps1)
+$SW.ViewerRole = 'smartwms_viewer'               # akun baca-saja untuk pgAdmin (setup-viewer.ps1)
+$SW.RestoreTestDb = 'smartwms_restore_test'
+$SW.BackupTask = 'SmartWMS Backup Harian'
 $SW.PgService  = "postgresql-x64-$($SW.PgVersion)"
 $SW.PgBin      = "C:\Program Files\PostgreSQL\$($SW.PgVersion)\bin"
 
@@ -164,9 +168,11 @@ function Start-AppService {
   (Get-Service -Name $SW.ServiceId).WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
 }
 
+# Semua adapter aktif ber-IPv4 (LAN kantor bisa saja tanpa gateway/internet).
 function Get-LanAddress {
   Get-NetIPConfiguration |
-    Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+    Where-Object { $_.NetAdapter.Status -eq 'Up' -and $_.IPv4Address -and
+      (($_.IPv4Address | Select-Object -First 1).IPAddress -notlike '169.254.*') } |
     ForEach-Object {
       [pscustomobject]@{
         Adapter = $_.InterfaceAlias
@@ -175,4 +181,47 @@ function Get-LanAddress {
         Profile = (Get-NetConnectionProfile -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).NetworkCategory
       }
     }
+}
+
+# --- Database ---------------------------------------------------------------
+# Pecah connection string postgres://user:pass@host:port/db dari file env.
+function Get-DbConnection([string]$EnvFile, [string]$Key) {
+  $map = Read-EnvFile $EnvFile
+  if (-not $map.Contains($Key)) { throw "$Key tidak ada di $EnvFile - jalankan setup-server.ps1." }
+  $m = [regex]::Match($map[$Key], '^postgres(?:ql)?://([^:]+):([^@]+)@([^:/]+):(\d+)/(.+)$')
+  if (-not $m.Success) { throw "Format $Key di $EnvFile tidak dikenali." }
+  [pscustomobject]@{ User = $m.Groups[1].Value; Password = $m.Groups[2].Value; Host = $m.Groups[3].Value; Port = $m.Groups[4].Value; Db = $m.Groups[5].Value }
+}
+
+# Jalankan program PostgreSQL dengan password lewat PGPASSWORD (tidak tampil di daftar proses).
+function Invoke-Pg([string]$Exe, [string[]]$ArgumentList, [string]$Password, [string]$What) {
+  $env:PGPASSWORD = $Password
+  try { Invoke-Native (Join-Path $SW.PgBin $Exe) $ArgumentList $What }
+  finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+}
+
+# Sama seperti Invoke-Pg tetapi mengembalikan output (untuk query -Atc).
+function Get-PgOutput([string]$Exe, [string[]]$ArgumentList, [string]$Password, [string]$What) {
+  $env:PGPASSWORD = $Password
+  try {
+    $out = & (Join-Path $SW.PgBin $Exe) @ArgumentList
+    if ($LASTEXITCODE -ne 0) { throw "$What gagal (exit code $LASTEXITCODE)." }
+    return $out
+  } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+}
+
+function Read-PostgresPassword {
+  $sec = Read-Host -AsSecureString 'Password superuser "postgres"'
+  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+  try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
+# Jumlah baris per tabel (untuk membandingkan hasil restore)
+$SQL_ROW_COUNTS = "select string_agg(t || '=' || n, ' ' order by t) from (select relname as t, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', schemaname, relname), false, true, '')))[1]::text::bigint as n from pg_stat_user_tables) x"
+
+function Write-Log([string]$File, [string]$Message) {
+  $line = '{0}  {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
+  Add-Content -LiteralPath $File -Value $line -Encoding UTF8
+  Write-Host "         $Message"
 }

@@ -1,8 +1,8 @@
 # DEPLOY-LOKAL — Runbook Server SmartWMS V2
 
 > Cara memasang, memperbarui, dan merawat SmartWMS V2 di PC server kantor (Windows 11).
-> Dibuat: 30 Oktober 2026 (Tahap 6a). Keputusan teknis: `ARCHITECTURE.md` D-12, D-20, D-32–D-34.
-> Bagian **Backup & restore** dilengkapi di Tahap 6b.
+> Dibuat: 30 Oktober 2026 (Tahap 6a, backup Tahap 6b). Keputusan teknis: `ARCHITECTURE.md` D-12, D-20, D-32–D-36.
+> Panduan harian untuk admin server (bahasa non-teknis): [`MANUAL-ADMIN-SERVER.md`](MANUAL-ADMIN-SERVER.md).
 
 ---
 
@@ -29,7 +29,7 @@ PC lain di LAN ──http://<IP-server>:3000──▶ Windows Firewall (hanya TC
 | `C:\SmartWMS\config` | `smartwms.env` (service), `migrate.env`, `secrets.env` | `smartwms.env` service baca; lainnya Administrator saja |
 | `C:\SmartWMS\logs` | Log aplikasi (`SmartWMS.out.log`, `SmartWMS.err.log`, `SmartWMS.wrapper.log`) | service: ubah |
 | `C:\SmartWMS\bin` | `SmartWMS.exe` (WinSW v2.12.0) + `SmartWMS.xml` | Administrator |
-| `C:\SmartWMS\backups` | Backup database (Tahap 6b) | Administrator |
+| `C:\SmartWMS\backups` | Backup database + `last-backup.json` (folder bisa diganti, §8) | Administrator |
 
 Semua script ada di `deploy\windows\` dan harus dijalankan dari **PowerShell sebagai Administrator**.
 
@@ -99,8 +99,16 @@ aktifkan lewat SQL (pgAdmin, database `smartwms`):
 ### 3.5 Jaringan
 - **IP tetap:** di router kantor buat *DHCP reservation* untuk MAC yang dicetak `setup-server.ps1`
   (atau `status.ps1`). Tanpa ini alamat `http://<IP>:3000` bisa berubah setelah restart router.
-- **Profil jaringan harus Private/Domain.** Bila Public, PC lain tidak bisa akses:
-  Settings → Network & internet → (Ethernet/Wi-Fi) → Network profile type → **Private network**.
+- **Pengguna mengakses lewat LAN kantor (Ethernet).** Firewall hanya membuka port 3000 untuk profil
+  **Private/Domain**. Adapter Ethernet kantor harus Private (atau Domain bila PC join domain):
+  `Set-NetConnectionProfile -InterfaceAlias "Ethernet" -NetworkCategory Private`
+  (nama adapter: `Get-NetAdapter`), atau Settings → Network & internet → Ethernet → Network profile
+  type → **Private network**.
+- **Wi-Fi/dongle untuk internet biarkan Public** — dengan begitu SmartWMS tidak terbuka di jaringan
+  itu. Ethernet (Private) dan Wi-Fi (Public) boleh aktif bersamaan; Windows menerapkan profil per
+  adapter. `deploy.ps1` butuh internet (GitHub & npm) dari salah satunya.
+- DHCP reservation dibuat untuk **MAC adapter Ethernet**. Bila server terpaksa memakai Wi-Fi kantor:
+  matikan *Random hardware addresses* untuk jaringan itu agar MAC tidak berubah.
 - Uji dari PC lain: buka `http://<IP-server>:3000`.
 
 ### 3.6 Windows Update
@@ -119,7 +127,7 @@ setelah restart — tidak perlu login Windows.
    ```
 3. Script mencetak `Sehat: rilis …` bila berhasil.
 
-Yang terjadi: build di `C:\SmartWMS\src` → folder rilis baru → (backup, Tahap 6b) → stop service →
+Yang terjadi: build di `C:\SmartWMS\src` → folder rilis baru → backup database → stop service →
 migrasi database → `C:\SmartWMS\app` diarahkan ke rilis baru → start → cek `/api/health`.
 Bila rilis baru tidak sehat dalam 90 detik, script **otomatis kembali ke rilis sebelumnya**.
 Downtime normal: ±10–20 detik (antara stop dan health OK).
@@ -137,7 +145,7 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\rollback.ps1 -Release 20
 ```
 
 Rollback hanya mengganti **kode**. Bila rilis yang dibatalkan membawa migrasi skema, kembalikan juga
-database dari backup (Tahap 6b).
+database dari backup `predeploy-<commit>` yang dibuat otomatis sebelum migrasi (§8.4).
 
 ---
 
@@ -168,7 +176,7 @@ data sensitif).
 
 | Gejala | Penyebab umum | Langkah |
 |---|---|---|
-| PC lain tidak bisa membuka `http://<IP>:3000` | Profil jaringan Public; IP berubah; firewall pihak ketiga | Ubah ke Private (§3.5); cek IP di `status.ps1`; buka port 3000 di antivirus bila ada |
+| PC lain tidak bisa membuka `http://<IP>:3000` | Ethernet berprofil Public; memakai IP Wi-Fi bukan IP Ethernet; IP berubah; firewall pihak ketiga | Ethernet → Private (§3.5); pakai IP Ethernet; cek IP di `status.ps1`; buka port 3000 di antivirus bila ada |
 | `localhost:3000` juga tidak bisa | Service mati / crash | `status.ps1`, baca `C:\SmartWMS\logs\SmartWMS.err.log` |
 | Health `db: down` (HTTP 503) | PostgreSQL mati / password berubah | `Get-Service postgresql-x64-18`; bila password diubah manual: `setup-server.ps1 -NewCredentials` |
 | `deploy.ps1`: `git` tidak ditemukan | Git hanya ada di MSYS2 | `winget install Git.Git`, buka ulang PowerShell |
@@ -182,7 +190,80 @@ menghapusnya dengan cara itu bisa ikut menghapus isi rilis. Gunakan `rollback.ps
 
 ---
 
-## 8. Backup & restore
+## 8. Backup & restore (Tahap 6b, ARCHITECTURE D-35)
 
-> Dilengkapi di Tahap 6b: `pg_dump` harian (Task Scheduler, retensi 14 hari), salinan mingguan ke
-> luar disk server, backup otomatis sebelum setiap deploy, dan prosedur restore yang sudah diuji.
+### 8.1 Pasang backup otomatis (sekali)
+Syarat: perubahan Tahap 6b sudah di-push **dan** `deploy.ps1` sudah dijalankan (task memakai
+`C:\SmartWMS\src\deploy\windows\backup.ps1` yang ikut ter-update setiap deploy).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\setup-backup.ps1
+```
+
+- Backup harian **18:30** (ubah: `-At 12:15`), akun SYSTEM. Bila PC mati di jam itu, backup jalan
+  begitu PC menyala lagi.
+- Disimpan di `C:\SmartWMS\backups` **14 hari** (ubah: `-KeepDays 30`, folder lain: `-BackupDir D:\Backup`);
+  3 backup terbaru tidak pernah dihapus walau sudah tua.
+- Script langsung menjalankan backup pertama dan menampilkan hasilnya.
+
+### 8.2 Salinan luar disk (wajib, PRD A9)
+Backup di disk yang sama tidak menolong kalau disk rusak / PC hilang. Tentukan tujuan, lalu:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\setup-backup.ps1 -OffsiteDir E:\Backup-SmartWMS
+```
+
+| Tujuan | Catatan |
+|---|---|
+| **Hardisk/flashdisk eksternal** (disarankan) | Biarkan tercolok, atau colokkan minimal seminggu sekali — backup berikutnya otomatis menyalin. Huruf drive harus tetap (atur di Disk Management) |
+| Folder bersama di PC/NAS lain (`\\PC-LAIN\Backup`) | Task berjalan sebagai SYSTEM → folder harus memberi akses ke akun komputer server (`NAMA-PC$`) |
+| Folder sinkron cloud (Google Drive/OneDrive) | Hanya bila diizinkan kebijakan data perusahaan |
+
+Salinan dibuat bila salinan terakhir di tujuan sudah ≥ 7 hari, disimpan 56 hari (minimal 2 file).
+Bila tujuan tidak terhubung, dicatat di `backup.log` dan dicoba lagi besok. `status.ps1`
+memperingatkan bila salinan luar disk > 8 hari.
+
+### 8.3 Backup manual
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\backup.ps1 -Tag manual
+powershell -ExecutionPolicy Bypass -File deploy\windows\backup.ps1 -Tag manual -Offsite   # sekaligus salin ke luar disk
+```
+`deploy.ps1` selalu membuat backup `predeploy-<commit>` sebelum migrasi.
+
+### 8.4 Restore
+**Uji restore** (aman, produksi tidak disentuh — lakukan **sebulan sekali**):
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1                      # backup terbaru
+powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -File <path>.dump
+```
+Dipulihkan ke database `smartwms_restore_test`, jumlah baris per tabel dibandingkan dengan produksi,
+lalu database uji dihapus (`-Keep` untuk membiarkannya dan melihatnya di pgAdmin).
+
+**Restore produksi** (data sesudah waktu backup HILANG):
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -Production -File C:\SmartWMS\backups\smartwms_....dump
+```
+Urutan: konfirmasi ketik `RESTORE` → backup pengaman `pra-restore` → stop aplikasi → database
+dibuat ulang (role & hak akses) → isi backup dipulihkan → zona waktu UTC dipasang lagi → start →
+cek health. Setelah itu jalankan ulang `setup-viewer.ps1` bila akun baca-saja dipakai.
+
+Keduanya meminta password superuser `postgres`.
+
+### 8.5 Detail teknis
+- Format `pg_dump --format=custom` (terkompresi, bisa dipulihkan per tabel dengan `pg_restore -t`).
+- Ditulis ke `.partial` dulu, diverifikasi `pg_restore --list`, baru diganti nama → file `.dump`
+  selalu utuh.
+- Dump memakai role owner produksi (`migrate.env`), restore memakai `--no-owner --single-transaction
+  --exit-on-error` (gagal = tidak ada perubahan setengah jadi).
+- `pg_dump` tidak menyimpan setelan per-database → restore memasang ulang `timezone = UTC` (D-22).
+- Log: `C:\SmartWMS\logs\backup.log`; status terakhir: `<folder backup>\last-backup.json`.
+
+---
+
+## 9. Akun database baca-saja (pgAdmin)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\setup-viewer.ps1
+```
+Membuat `smartwms_viewer` (hanya SELECT, semua transaksi read-only, D-36) dan menampilkan
+passwordnya **sekali**. Cara memakai di pgAdmin: [`MANUAL-ADMIN-SERVER.md`](MANUAL-ADMIN-SERVER.md) §6.

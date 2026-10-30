@@ -76,7 +76,7 @@ Supervisor Asset, tim GA). Penonton layar Live Stock (view-only).
 | A6 | "Lupa password via email" diganti **reset password oleh Super Admin** (tidak ada SMTP di LAN) |
 | A7 | Semua data V1 dimigrasikan; jumlah baris per tabel identik sebelum & sesudah |
 | A8 | Next.js build `standalone`, berjalan sebagai **Windows Service** (auto-start setelah reboot) |
-| A9 | **Backup harian** otomatis (`pg_dump`), retensi 14 hari + salinan mingguan di luar disk server; prosedur restore terdokumentasi & diuji |
+| A9 | **Backup harian** otomatis (`pg_dump`), retensi 14 hari + salinan mingguan di luar disk server; prosedur restore terdokumentasi & diuji — diterapkan Tahap 6b (ARCHITECTURE D-35, `MANUAL-ADMIN-SERVER.md`) |
 | A10 | Font di-host sendiri (`@fontsource`) — build & runtime tidak butuh Google Fonts |
 | A11 | Kontrak API (`/api/*` request/response) dipertahankan selama fase paritas, agar halaman & hook tidak ikut ditulis ulang |
 

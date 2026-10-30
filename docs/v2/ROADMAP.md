@@ -26,8 +26,8 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 3c | Auth — manajemen user & ganti password | V2 | ✅ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) — satu sprint | V2 | ✅ |
 | 5 | Tema light & dark — token & fondasi (T1–T2) | V2 | ✅ |
-| 6a | Server Windows: DB produksi, service, deploy | PC server | 🚧 |
-| 6b | Backup harian + uji restore | PC server | ⬜ |
+| 6a | Server Windows: DB produksi, service, deploy | PC server | 🚧 deploy ✅ |
+| 6b | Backup harian + uji restore + manual admin | PC server | 🚧 |
 | 7 | UAT & cutover | — | ⬜ |
 | 8 | Tema per halaman (T3) + Live Stock (T4) | V2 | ⬜ |
 | 9 | Improvement V2 (PRD §5.D) | V2 | ⏸ menunggu pilihan |
@@ -185,16 +185,25 @@ Runbook: `docs/v2/DEPLOY-LOKAL.md`.
 - `deploy.ps1` / `rollback.ps1` / `status.ps1`: clone terpisah → build → rilis → migrasi → junction →
   health check + rollback otomatis (D-33)
 - `GET /api/health` (publik), pool DB lazy (build tanpa env), header keamanan di `next.config.ts`
-- IP tetap: DHCP reservation di router (manual, MAC dicetak script)
+- ✅ 30 Okt: setup + deploy pertama sukses di PC (rilis `20261030-133805-fc70454`, health OK)
+- Uji pertama lewat dongle Wi-Fi internet (Public, Ethernet dimatikan) → port 3000 memang tertutup.
+  Sisa: aktifkan Ethernet LAN kantor (Private), uji akses dari PC lain, restart PC
+  tanpa login, deploy kedua + rollback; DHCP reservation
 **Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
 tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 **STOP**
 
-### 6b — Backup & restore ⬜
-- `backup.ps1`: `pg_dump` harian via Task Scheduler, retensi 14 hari, salinan mingguan ke luar disk
-  server (lokasi ditentukan Fillian), dipanggil otomatis oleh `deploy.ps1` sebelum migrasi
-- `restore.ps1` + uji restore ke database terpisah; DEPLOY-LOKAL.md §8
-**Selesai bila:** backup terjadwal jalan; restore teruji.
+### 6b — Backup, restore, manual admin 🚧
+- `backup.ps1` (D-35): `pg_dump` custom, verifikasi, retensi 14 hari, salinan luar disk mingguan;
+  dipanggil `deploy.ps1` sebelum migrasi
+- `setup-backup.ps1`: Task Scheduler harian 18:30 (SYSTEM, jalan saat PC menyala bila terlewat)
+- `restore.ps1`: uji restore ke DB terpisah + bandingkan jumlah baris; restore produksi dengan
+  konfirmasi & backup pengaman
+- `setup-viewer.ps1`: akun database baca-saja untuk pgAdmin (D-36)
+- `status.ps1`: umur backup & salinan luar disk; URL per adapter (Public = tertutup), peringatan bila tidak ada jaringan Private/Domain
+- `docs/v2/MANUAL-ADMIN-SERVER.md`: manual harian admin server; DEPLOY-LOKAL §8–9
+- Menunggu Fillian: lokasi **salinan luar disk** (hardisk eksternal disarankan)
+**Selesai bila:** backup terjadwal jalan (hasil 0x0); uji restore lolos; salinan luar disk terisi.
 **STOP**
 
 ## Tahap 7 — UAT & cutover ⬜

@@ -61,6 +61,8 @@ PostgreSQL 18 ── Windows Service, listen_addresses = 'localhost'
 | **D-32** | Produksi memakai **role sendiri**: `smartwms_prod_owner` / `smartwms_prod_app` (dev tetap `smartwms_owner` / `smartwms_app`). Password acak 32 karakter dibuat `setup-server.ps1`, disimpan di `C:\SmartWMS\config` (ACL: Administrator; service hanya bisa membaca `smartwms.env`). `setup-db.sql` menerima nama role & password lewat environment | Dev & prod di PC yang sama: kredensial di `.env.local` dev secara fisik tidak bisa masuk ke database produksi (diuji: `has_database_privilege` = false) | Satu pasang role untuk dev & prod (D-20 awal) |
 | **D-33** | Deploy = **clone terpisah** `C:\SmartWMS\src` (yang dirilis = yang sudah di-push) → `npm ci` + build → folder rilis `releases\<tanggal>-<commit>` → stop → migrasi → junction `C:\SmartWMS\app` dipindah → start → cek `GET /api/health` (publik, tanpa data sensitif) → gagal = kembali otomatis ke rilis sebelumnya. Pool database dibuat saat query pertama, jadi `next build` tidak butuh `DATABASE_URL` | Rollback cepat (ganti junction, ±10 detik); folder dev & `npm run dev` tidak terganggu deploy; build tidak memegang rahasia | Build langsung di folder dev (ikut perubahan yang belum di-commit, `npm ci` merusak `node_modules` dev); salin manual |
 | **D-34** | Setelan PostgreSQL produksi lewat `ALTER SYSTEM` (`deploy/windows/tune-postgres.sql`): `listen_addresses = localhost`, `shared_buffers 512MB`, `effective_cache_size 3GB`, `work_mem 16MB`, `maintenance_work_mem 256MB`, `max_connections 50`, `random_page_cost 1.1`, log query > 1 detik | RAM 8 GB, NVMe, < 20 pengguna. Installer EDB default `listen_addresses = '*'`. Setelah upgrade 16 GB: `effective_cache_size 8GB` | Setelan default (memori kecil, menerima koneksi dari jaringan) |
+| **D-35** | Backup = `pg_dump --format=custom` harian oleh Task Scheduler (SYSTEM, `StartWhenAvailable`), retensi 14 hari (min. 3 file), ditulis `.partial` → diverifikasi `pg_restore --list` → rename; salinan luar disk otomatis bila salinan terakhir ≥ 7 hari (retensi 56 hari); backup otomatis sebelum migrasi (`deploy.ps1`) & sebelum restore. Restore uji ke DB terpisah + bandingkan jumlah baris; restore produksi `--no-owner --single-transaction --exit-on-error` lalu pasang ulang `timezone = UTC` | RPO 24 jam (PRD §6); file backup selalu utuh; PC yang kadang mati di jam backup tetap ter-backup; setelan per-database tidak ikut `pg_dump` tanpa `--create` (diuji). Restore yang tidak pernah diuji = tidak ada backup | `pg_basebackup`/WAL archiving (berlebihan untuk DB < 1 GB, restore lebih rumit); backup manual |
+| **D-36** | Akses lihat data untuk admin lewat role **`smartwms_viewer`**: hanya `SELECT` (+ default privileges untuk tabel baru), `default_transaction_read_only = on`. Superuser `postgres` hanya untuk perbaikan darurat | Admin bisa memakai pgAdmin tanpa risiko mengubah/menghapus data tak sengaja; dua lapis pengaman (diuji: DELETE ditolak walau read-only dimatikan di sesi) | Memakai `postgres` untuk melihat data; membagikan password role app |
 
 ## 3. Struktur Folder (target V2)
 
@@ -96,7 +98,10 @@ scripts/
 deploy/windows/                 # server Windows (Tahap 6, docs/v2/DEPLOY-LOKAL.md)
 ├─ setup-server.ps1             #   setup sekali: DB prod, setelan PostgreSQL, service WinSW, firewall
 ├─ deploy.ps1 / rollback.ps1    #   rilis baru / kembali ke rilis sebelumnya (D-33)
-├─ status.ps1                   #   cek service, health, disk, log
+├─ status.ps1                   #   cek service, health, backup, disk, log
+├─ backup.ps1 / restore.ps1     #   backup harian & restore uji/produksi (D-35)
+├─ setup-backup.ps1             #   jadwal backup (Task Scheduler) + salinan luar disk
+├─ setup-viewer.ps1, viewer.sql #   akun database baca-saja untuk pgAdmin (D-36)
 ├─ common.ps1                   #   fungsi bersama
 ├─ setup-db.sql                 #   role & database (D-20, D-32)
 └─ tune-postgres.sql            #   setelan PostgreSQL (D-34)

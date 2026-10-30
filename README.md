@@ -21,7 +21,8 @@ sumber `npm run db:import-v1` sampai cutover.
 | [`docs/v2/ARCHITECTURE.md`](docs/v2/ARCHITECTURE.md) | Keputusan teknis (D-xx), struktur folder, konvensi kode |
 | [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md) | Tahapan kerja & status |
 | [`docs/v2/STYLEGUIDE.md`](docs/v2/STYLEGUIDE.md) | Aturan tampilan (light & dark) |
-| [`docs/v2/DEPLOY-LOKAL.md`](docs/v2/DEPLOY-LOKAL.md) | Runbook server: instalasi, update, rollback, troubleshooting |
+| [`docs/v2/DEPLOY-LOKAL.md`](docs/v2/DEPLOY-LOKAL.md) | Runbook server: instalasi, update, rollback, backup, troubleshooting |
+| [`docs/v2/MANUAL-ADMIN-SERVER.md`](docs/v2/MANUAL-ADMIN-SERVER.md) | Manual harian admin server: nyala/restart, cek, database, backup & restore |
 | [`docs/chat-rule.md`](docs/chat-rule.md) | Pola kerja pengembangan |
 | [`docs/development-journal.md`](docs/development-journal.md) | Riwayat pengembangan (append-only) |
 | [`docs/project_context.md`](docs/project_context.md) | Snapshot fitur & skema (V1, sampai cutover) |

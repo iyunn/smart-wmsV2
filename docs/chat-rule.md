@@ -48,6 +48,8 @@ Kerja hotfix V1 → baca dari repo V1 (`.../smart-warehouse-management-system/ma
 - Pengecualian: script server `deploy\windows\*.ps1` dijalankan di **PowerShell Administrator**
   (`docs/v2/DEPLOY-LOKAL.md` §2) karena memasang service, firewall, dan hak akses folder.
 - Format commit message: **1 baris judul + bullets ringkas**. Prefix: `feat`, `fix`, `refactor`, `docs`, `chore`, `security`; sertakan tahap, mis. `feat(v2-3): auth sendiri`.
+  Claude memberikannya sebagai perintah siap tempel `git commit -F - <<'MSG' … MSG` (bukan `-m "..."`
+  dengan placeholder — commit `fc70454` sempat ber-judul "..." karena itu).
 - Selalu sebut **repo tujuan** (V1 atau V2) untuk setiap paket file.
 - Banyak file sekaligus → dikirim sebagai **zip berstruktur path repo**, di-extract di root repo:
   `powershell.exe -NoProfile -Command 'Expand-Archive -Force "$env:USERPROFILE\Downloads\<nama>.zip" -DestinationPath .'`

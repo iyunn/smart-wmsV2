@@ -3696,3 +3696,41 @@ emulasi Supabase) vs route V2, dua database berisi data identik hasil `db:import
   ganti password → 403 `MUST_CHANGE_PASSWORD`.
 - Browser (Playwright): halaman Classification memuat via API baru, tambah/edit/hapus rule + revert
   jalan, 0 error console.
+
+# 30 Oktober 2026 — Tahap 4 diuji di PC, Tahap 5 (tema light & dark)
+
+### Tahap 4 ✅ (diuji di PC dev)
+Commit `906b688`. Checklist 9 poin lolos. Admin biasa tidak melihat ikon hapus SJ (UI V1) dan API
+menolak 403 bila dipaksa (ARCHITECTURE §6).
+
+### Tahap 5 — token & fondasi tema
+- **Permintaan Fillian:** dark ikut STYLEGUIDE, tapi gelap & nyaman di mata → D-30 (arang hangat,
+  teks gading, aksen diredam). PRD C4 & ARCHITECTURE D-16 diperbarui.
+- **`globals.css` ditulis ulang** (D-31): token per tema; variabel palet Tailwind lama → token, jadi
+  ±1.500 class V1 (`text-cyan-300`, `bg-white/[0.04]`, …) ikut tema tanpa mengubah halaman. Aturan
+  kompatibilitas di `@layer utilities` tanpa `!important` → `hover:`/`focus:` tidak lagi tertimpa
+  (bug V1: hover di light mode tidak berubah warna pada class yang di-override).
+- **Font** `@fontsource-variable/plus-jakarta-sans` & `jetbrains-mono`; `next/font/google` dihapus →
+  `next build` tidak butuh internet (syarat server LAN).
+- **Bingkai:** Sidebar `glass`, Topbar `glass-bar`, item aktif `bg-brand-50 text-brand-700` +
+  `aria-current="page"`, label sentence case ≥ 12px, tombol ciutkan ber-`aria-label`.
+- **Grafik Dashboard** memakai token (V1: teks sumbu & tooltip putih/hitam hardcoded → tak terbaca di
+  light). **Pendingan**: token halaman diarahkan ke token global, panel data solid.
+- PRD Q2 ✅ (Fillian pemegang wewenang IT), Q4: i3 gen 12, NVMe 512 GB, RAM 8 GB (rencana upgrade).
+
+[KEPUTUSAN] `text-white/20…/50` (±270 pemakaian, label & keterangan) dipetakan ke `text-muted`
+(≥ 4,5:1), bukan opacity — hierarki sedikit lebih datar, tapi semua terbaca. Warna pudar hanya
+`text-faint` untuk dekorasi (STYLEGUIDE §2.1).
+[GOTCHA] Teks putih di tombol bergradasi: karena `white` = tinta di light, elemen ber-class isi solid
+(`from-cyan-500`, `bg-emerald-600`, …) me-reset `--color-white` ke putih sungguhan.
+[GOTCHA] Audit fokus: `transition-all` di input membuat warna outline "setengah jalan" bila diukur
+langsung setelah Tab — tunggu ±300 ms.
+[CATATAN] Halaman Template Item crash `items.map is not a function` hanya dengan data uji sandbox
+(template berisi objek, bukan array) — data asli selalu array (API menyanitasi). Live Stock: label
+"LIVE STOCK" bertumpuk dengan angka besar di layar 1440 px — sudah ada sejak V1, masuk Tahap 8 (T4).
+
+[VERIFIKASI] `tsc` 0 error, Vitest 15/15, `next build` sukses tanpa Google Fonts. Screenshot 17
+halaman × 2 tema. **Audit kontras otomatis** (Playwright, tiap teks terlihat di 1440×900, latar
+disusun dari lapisan induk): V1 ±600 teks gagal AA di light & ±290 di dark → V2 **0** di kedua tema
+(elemen disabled dikecualikan sesuai WCAG). `:focus-visible` terukur 2px `brand-600` di input,
+tombol, tautan.

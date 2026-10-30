@@ -31,9 +31,9 @@ const METRIC_LABELS: Record<Metric, string> = {
 };
 
 const CGA_COLORS = {
-  CGA1: "#10B981", // emerald
-  CGA2: "#F59E0B", // amber
-  CGA3: "#F43F5E", // rose
+  CGA1: "var(--success-600)", // token tema (STYLEGUIDE §8)
+  CGA2: "var(--warning-500)",
+  CGA3: "var(--danger-500)",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -177,15 +177,15 @@ function TrendCGACards() {
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="bulan"
-                tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                axisLine={{ stroke: "var(--border)" }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }}
+                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
                 width={55}
@@ -193,16 +193,17 @@ function TrendCGACards() {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#0d1117",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 11,
-                  color: "rgba(255,255,255,0.8)",
+                  color: "var(--text)",
                 }}
                 formatter={(value: any) => [formatValue(Number(value), metric), ""]}
               />
               <Legend
-                wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.5)", paddingTop: 8 }}
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                formatter={(value) => <span style={{ color: "var(--text)" }}>{value}</span>}
               />
               {(["CGA1","CGA2","CGA3"] as const).map(cga => (
                 <Line

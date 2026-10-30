@@ -25,7 +25,7 @@ Setiap kali tahap selesai: update status di file ini + entry baru di `developmen
 | 3b | Auth — login, register, proxy, sesi di UI | V2 | ✅ |
 | 3c | Auth — manajemen user & ganti password | V2 | ✅ |
 | 4a–4f | Data layer per domain (Supabase → Kysely) — satu sprint | V2 | ✅ |
-| 5 | Tema light — token & fondasi (T1–T2) | V2 | ⬜ |
+| 5 | Tema light & dark — token & fondasi (T1–T2) | V2 | ✅ |
 | 6 | Server Windows & backup | PC server | ⬜ |
 | 7 | UAT & cutover | — | ⬜ |
 | 8 | Tema per halaman (T3) + Live Stock (T4) | V2 | ⬜ |
@@ -157,14 +157,23 @@ Setiap route diganti ke Kysely, **kontrak API sama** (ARCHITECTURE D-08), diuji 
 semua halaman jalan di PC dev dengan data hasil `db:import-v1`.
 **STOP**
 
-## Tahap 5 — Tema light: token & fondasi ⬜
-- **T1:** nilai token light di `globals.css` diganti sesuai STYLEGUIDE; override lapisan kompatibilitas diarahkan ke `var()` → seluruh app ikut palet baru
-- **T2:** font `@fontsource` (hapus `next/font/google`), latar `.app-backdrop`, utilitas `glass`/`glass-bar` untuk Topbar/Sidebar/modal, radius, bayangan, `:focus-visible`
-**Selesai bila:** semua halaman terbaca di light & dark; tidak ada teks < 4,5:1.
+## Tahap 5 — Tema light & dark: token & fondasi ✅
+- **T1:** token light sesuai STYLEGUIDE; **dark ikut STYLEGUIDE** versi gelap nyaman di mata
+  (permintaan Fillian, D-30). Palet Tailwind lama dipetakan ke token lewat variabel CSS (D-31) →
+  seluruh app ikut palet baru tanpa mengubah halaman; aturan `.light … !important` V1 dihapus
+- **T2:** font `@fontsource` (hapus `next/font/google` → build tanpa internet), latar `app-backdrop`,
+  utilitas `glass`/`glass-bar` (Sidebar, Topbar), radius 8/10/12/18/24, bayangan hangat,
+  `:focus-visible`, scrollbar ikut tema
+- Ikut dirapikan karena bagian bingkai/token: Sidebar & Topbar (token, `aria-current`, label
+  sentence case ≥ 12px), warna grafik Dashboard (V1: teks sumbu putih → tak terlihat di light),
+  token halaman Pendingan → token global
+- Belum: komponen `Button`/`Panel`/`ConfirmDialog`, sentence case & ukuran font per halaman,
+  Live Stock → Tahap 8
+**Selesai bila:** semua halaman terbaca di light & dark; tidak ada teks < 4,5:1 (audit otomatis).
 **STOP**
 
 ## Tahap 6 — Server Windows & backup ⬜
-- Prasyarat: izin IT (PRD Q2), spesifikasi PC (Q4)
+- Prasyarat: izin IT (PRD Q2 ✅), spesifikasi PC (Q4: i3 gen 12, NVMe 512 GB, RAM 8 GB — versi Windows dicek di awal Tahap 6)
 - PostgreSQL 18 (lewati install bila PC dev = PC server), buat DB `smartwms` + user `smartwms_app`, `listen_addresses='localhost'`
 - Build standalone, WinSW service, firewall port 3000, IP tetap (DHCP reservation)
 - Backup harian Task Scheduler + uji restore

@@ -1,24 +1,13 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionContext";
 import { ThemeProvider } from "@/components/ThemeContext";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
 export const metadata: Metadata = {
   title: "SmartWMS — Smart Asset Monitoring & Reconciliation",
-  description: "Smart Asset Monitoring and Reconciliation System berbasis cloud",
+  description: "Smart Asset Monitoring and Reconciliation System — server lokal GA",
 };
 
 export default function RootLayout({
@@ -27,10 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="id"
-      className={`${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
-    >
+    <html lang="id" className="h-full antialiased">
       <head>
         {/* Anti-flash: apply tema dari localStorage cache sebelum React mount.
             DB tetap sumber kebenaran (di-sync oleh ThemeProvider setelah login). */}
@@ -40,7 +26,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col font-[var(--font-dm-sans)]">
+      <body className="min-h-full flex flex-col">
         <SessionProvider>
           <ThemeProvider>
             {children}

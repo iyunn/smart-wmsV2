@@ -26,11 +26,11 @@ export default function Topbar({ title }: { title: string }) {
   }, [title]);
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 border-b sticky top-0 z-20 backdrop-blur-md" style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
+    <header className="glass-bar h-16 flex items-center justify-between px-6 border-b border-line sticky top-0 z-20">
       {/* Title */}
       <div>
-        <h1 className="text-white text-[16px] font-semibold tracking-tight leading-none">{title}</h1>
-        <p className="text-slate-500 text-[10px] mt-0.5">
+        <h1 className="text-heading text-[16px] font-bold tracking-tight leading-none">{title}</h1>
+        <p className="text-muted text-[12px] mt-1 leading-none">
           {dateStr || "\u00A0"}
         </p>
       </div>
@@ -41,24 +41,24 @@ export default function Topbar({ title }: { title: string }) {
         <ThemeToggle collapsed />
         {/* Ganti password */}
         <Link href="/ganti-password" title="Ganti password" aria-label="Ganti password"
-          className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+          className="p-2 rounded-lg text-muted hover:text-heading hover:bg-brand-50/60 transition-colors">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.7 12.3 9.8-9.8" /><path d="m17 6 3 3" /><path d="m14.5 8.5 2 2" />
           </svg>
         </Link>
         {/* Nama user + role + logout */}
         <div className="flex items-center gap-2 pl-1 cursor-pointer group" onClick={signOut} title="Klik untuk logout">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-[13px] font-bold shadow-lg shadow-purple-500/20 group-hover:shadow-purple-500/40 transition-shadow">
+          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-brand-500 to-brand-700 flex items-center justify-center text-[13px] font-bold text-white shadow-md shadow-brand-500/25">
             {profile?.username?.[0]?.toUpperCase() ?? "A"}
           </div>
           <div className="hidden md:block">
-            <p className="text-white text-[12px] font-medium leading-none">{profile?.username ?? "Admin"}</p>
-            <p className="text-slate-500 text-[10px] mt-0.5">
+            <p className="text-heading text-[13px] font-semibold leading-none">{profile?.username ?? "Admin"}</p>
+            <p className="text-muted text-[12px] mt-1 leading-none">
               {profile?.role === "super_admin" ? "Super Admin" : "Admin"}
             </p>
           </div>
           {/* Ikon logout */}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 group-hover:text-white transition-colors ml-1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted group-hover:text-danger transition-colors ml-1">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
             <line x1="21" y1="12" x2="9" y2="12" />

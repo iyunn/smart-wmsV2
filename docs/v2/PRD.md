@@ -103,7 +103,7 @@ Supervisor Asset, tim GA). Penonton layar Live Stock (view-only).
 | C1 | Token warna light diganti sesuai `STYLEGUIDE.md`; nama class token yang sudah dipakai (`bg-surface`, `text-muted`, dst.) **tidak berubah** |
 | C2 | Semua teks < 18px kontras ≥ 4,5:1 terhadap latarnya |
 | C3 | Efek kaca hanya untuk chrome (Topbar, Sidebar, modal, toast); tabel & kartu data memakai permukaan solid |
-| C4 | Dark mode tetap tersedia dan tidak berubah |
+| C4 | Dark mode tetap tersedia, **disesuaikan STYLEGUIDE** dalam versi gelap yang nyaman di mata (ARCHITECTURE D-30); kontras AA berlaku juga di dark |
 | C5 | PDF (Surat Jalan, Penerimaan, Rekap DAT) tidak terpengaruh tema |
 
 ### D. Improvement V2 — kandidat (BELUM DIKONFIRMASI)
@@ -176,8 +176,8 @@ Rincian tahap & status ada di [`ROADMAP.md`](./ROADMAP.md).
 | # | Hal | Status |
 |---|---|---|
 | Q1 | Tidak ada akses dari luar LAN | Asumsi — konfirmasi |
-| Q2 | IT kantor mengizinkan PC menjalankan server & membuka port 3000 di LAN | Belum dicek |
+| Q2 | IT kantor mengizinkan PC menjalankan server & membuka port 3000 di LAN | ✅ Aman — Fillian sendiri pemegang wewenangnya (30 Okt 2026) |
 | Q3 | Daftar improvement V2 yang dipilih (§5.D) | Menunggu Fillian |
-| Q4 | Spesifikasi PC server (RAM, disk, versi Windows) | Belum diketahui |
+| Q4 | Spesifikasi PC server (RAM, disk, versi Windows) | Intel Core i3 gen 12, NVMe 512 GB, RAM 8 GB (rencana upgrade dalam waktu dekat). Versi Windows belum disebut |
 | Q5 | Login pakai email, username, atau keduanya | Default: keduanya |
 | Q6 | PC development sama dengan PC server? | Belum diketahui — rencana aman untuk dua kemungkinan (ARCHITECTURE D-13) |

@@ -480,83 +480,33 @@ export default function PendinganAlokasiPage() {
 
       {/* ══ THEME: token warna + glass (dark & light) ═══════════════════════ */}
       <style jsx global>{`
-        /* ┌──────────────────────────────────────────────────────────────┐
-           │  KONTROL GLASS THEME — edit angka di sini saja                 │
-           │  blur   : makin besar makin buram (px)                         │
-           │  opacity: 0 = full transparan, 1 = solid (0.0 – 1.0)           │
-           └──────────────────────────────────────────────────────────────┘ */
+        /* Token halaman Pendingan → token tema global (globals.css, STYLEGUIDE §2).
+           Panel data solid (STYLEGUIDE §3: kaca hanya untuk bingkai aplikasi). */
         .pend-scope {
-          /* — DARK — */
-          --glass-blur-dark: 16px;        /* tingkat blur panel (dark) */
-          --glass-opacity-dark: 0.03;     /* opacity panel (dark) */
-          --glass-modal-opacity-dark: 0.06; /* opacity modal (dark) */
-
-          /* — LIGHT — */
-          --glass-blur-light: 20px;       /* tingkat blur panel (light) */
-          --glass-opacity-light: 0.45;    /* opacity panel (light) */
-          --glass-saturate-light: 160%;   /* saturasi warna di belakang (light) */
-        }
-
-        /* ─── Token warna (jangan diubah untuk atur blur/opacity) ─── */
-        .pend-scope {
-          --pend-text: rgba(255,255,255,0.88);
-          --pend-text-dim: rgba(255,255,255,0.40);
-          --pend-accent: #38bdf8;
-          --pend-border: rgba(255,255,255,0.10);
-          --pend-row: rgba(255,255,255,0.02);
-          --pend-input: rgba(255,255,255,0.05);
+          --pend-text: var(--text);
+          --pend-text-dim: var(--text-muted);
+          --pend-accent: var(--accent);
+          --pend-border: var(--border);
+          --pend-row: var(--surface);
+          --pend-input: var(--surface-3);
         }
         .pend-bg {
-          background:
-            radial-gradient(circle at 15% 15%, rgba(56,189,248,0.10), transparent 40%),
-            radial-gradient(circle at 85% 85%, rgba(139,92,246,0.08), transparent 40%),
-            #080e18;
+          background-color: var(--bg);
+          background-image: var(--backdrop-image);
+          background-attachment: fixed;
         }
         .pend-glass {
-          background: rgba(255,255,255,var(--glass-opacity-dark));
-          backdrop-filter: blur(var(--glass-blur-dark));
-          -webkit-backdrop-filter: blur(var(--glass-blur-dark));
-          border: 1px solid rgba(255,255,255,0.08);
+          background: var(--surface);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-chrome);
         }
-        .pend-emerald-text { color: #6ee7b7; }
-        /* Badge urgensi — dark */
-        .pend-urg-tinggi { background: rgba(244,63,94,0.18); color: #fda4af; }
-        .pend-urg-sedang { background: rgba(245,158,11,0.18); color: #fcd34d; }
-        .pend-urg-rendah { background: rgba(148,163,184,0.18); color: #cbd5e1; }
-        /* Badge arah — dark */
-        .pend-arah-kirim { background: rgba(56,189,248,0.18); color: #7dd3fc; }
-        .pend-arah-tarik { background: rgba(168,85,247,0.20); color: #d8b4fe; }
-
-        /* Light — glass ala iOS + warna kontras yang terbaca */
-        .light .pend-scope {
-          --pend-text: #1e293b;
-          --pend-text-dim: #64748b;
-          --pend-accent: #0369a1;
-          --pend-border: rgba(15,23,42,0.12);
-          --pend-row: rgba(255,255,255,0.5);
-          --pend-input: rgba(255,255,255,0.7);
-        }
-        .light .pend-bg {
-          background:
-            radial-gradient(circle at 15% 15%, rgba(56,189,248,0.18), transparent 42%),
-            radial-gradient(circle at 85% 85%, rgba(139,92,246,0.14), transparent 42%),
-            linear-gradient(135deg, #eef2f7 0%, #e6ebf2 100%);
-        }
-        .light .pend-glass {
-          background: rgba(255,255,255,var(--glass-opacity-light));
-          backdrop-filter: blur(var(--glass-blur-light)) saturate(var(--glass-saturate-light));
-          -webkit-backdrop-filter: blur(var(--glass-blur-light)) saturate(var(--glass-saturate-light));
-          border: 1px solid rgba(255,255,255,0.7);
-          box-shadow: 0 8px 32px rgba(15,23,42,0.08);
-        }
-        .light .pend-emerald-text { color: #047857; }
-        /* Badge urgensi — light (warna gelap agar kontras di bg terang) */
-        .light .pend-urg-tinggi { background: rgba(244,63,94,0.15); color: #9f1239; }
-        .light .pend-urg-sedang { background: rgba(245,158,11,0.18); color: #92400e; }
-        .light .pend-urg-rendah { background: rgba(100,116,139,0.15); color: #475569; }
-        /* Badge arah — light */
-        .light .pend-arah-kirim { background: rgba(56,189,248,0.18); color: #075985; }
-        .light .pend-arah-tarik { background: rgba(168,85,247,0.16); color: #6b21a8; }
+        .pend-emerald-text { color: var(--success-700); }
+        /* Badge urgensi & arah: tint + teks status (selalu ada teks, bukan hanya warna) */
+        .pend-urg-tinggi { background: var(--danger-50);  color: var(--danger-700); }
+        .pend-urg-sedang { background: var(--warning-50); color: var(--warning-700); }
+        .pend-urg-rendah { background: var(--surface-2);  color: var(--text-muted); }
+        .pend-arah-kirim { background: var(--brand-50);   color: var(--brand-700); }
+        .pend-arah-tarik { background: var(--plum-50);    color: var(--plum-700); }
       `}</style>
     </div>
   );

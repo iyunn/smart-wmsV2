@@ -183,32 +183,32 @@ const DailyShipmentCard = memo(({
         <div className="h-40 min-h-[160px]">
           <ResponsiveContainer width="100%" height="100%" minHeight={160}>
             <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="day"
-                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                axisLine={{ stroke: "var(--border)" }}
                 tickLine={false}
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                axisLine={{ stroke: "var(--border)" }}
                 tickLine={false}
               />
               <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                cursor={{ fill: "var(--surface-2)" }}
                 contentStyle={{
-                  background: "#0d1117",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 11,
                 }}
-                labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                labelStyle={{ color: "var(--text-muted)" }}
                 formatter={(v: any) => [Number(v).toLocaleString(), "Item"]}
                 labelFormatter={(label) => `Tanggal ${label}`}
               />
-              <Bar dataKey="total" fill="rgba(34,211,238,0.7)" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="total" fill="var(--brand-600)" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

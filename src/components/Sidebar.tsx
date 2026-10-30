@@ -171,31 +171,32 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className={`relative flex flex-col h-screen border-r transition-all duration-300 ease-in-out ${collapsed ? "w-[68px]" : "w-[230px]"}`} style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
+    <aside className={`glass relative z-10 flex flex-col h-screen border-r border-line transition-all duration-300 ease-in-out ${collapsed ? "w-[68px]" : "w-[230px]"}`}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/[0.06]">
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-line">
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-linear-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md shadow-brand-500/25">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
           </svg>
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="text-white text-[13px] font-semibold tracking-wide leading-none">SmartWMS</p>
-            <p className="text-slate-500 text-[10px] mt-0.5 tracking-widest uppercase">Warehouse</p>
+            <p className="text-heading text-[14px] font-bold tracking-tight leading-none">SmartWMS</p>
+            <p className="text-muted text-[12px] mt-1 leading-none">Warehouse GA</p>
           </div>
         )}
       </div>
 
       <button onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-[72px] w-6 h-6 rounded-full border flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all z-10" style={{ backgroundColor: "var(--surface-3)", borderColor: "var(--border)" }}>
+        aria-label={collapsed ? "Lebarkan menu" : "Ciutkan menu"}
+        className="absolute -right-3 top-[72px] w-6 h-6 rounded-full border border-line bg-surface shadow-sm flex items-center justify-center text-muted hover:text-heading hover:border-line-strong transition-all z-10">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           {collapsed ? <polyline points="9 18 15 12 9 6" /> : <polyline points="15 18 9 12 15 6" />}
         </svg>
       </button>
 
       <nav className="flex-1 px-2.5 py-4 space-y-0.5 overflow-y-auto">
-        {!collapsed && <p className="text-[10px] text-slate-600 uppercase tracking-widest font-medium px-3 pb-2">Main Menu</p>}
+        {!collapsed && <p className="text-[12px] text-muted font-medium px-3 pb-2">Menu utama</p>}
         {navItems
           .filter(item => !item.adminOnly || isSuperAdmin)
           .map(item => (
@@ -212,22 +213,22 @@ export default function Sidebar() {
 
       {/* Freshness indicator — kapan DAT & LPP terakhir diupload */}
       {!collapsed && (
-        <div className="mx-3 mb-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 space-y-2">
+        <div className="mx-3 mb-2 rounded-xl border border-line bg-surface px-3 py-2.5 space-y-2">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-white/30">DAT Update</p>
-            <p className="text-[10px] font-mono text-cyan-300/80 mt-0.5 leading-tight">{formatSidebarTime(datUpload)}</p>
+            <p className="text-[12px] font-medium text-muted">DAT terakhir</p>
+            <p className="text-[12px] font-mono text-brand-700 mt-0.5 leading-tight">{formatSidebarTime(datUpload)}</p>
           </div>
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-white/30">LPP Update</p>
-            <p className="text-[10px] font-mono text-violet-300/80 mt-0.5 leading-tight">{formatSidebarTime(lppUpload)}</p>
+            <p className="text-[12px] font-medium text-muted">LPP terakhir</p>
+            <p className="text-[12px] font-mono text-plum-700 mt-0.5 leading-tight">{formatSidebarTime(lppUpload)}</p>
           </div>
         </div>
       )}
 
       {/* Logout */}
-      <div className={`p-3 border-t border-white/[0.06] ${collapsed ? "flex justify-center" : ""}`}>
+      <div className={`p-3 border-t border-line ${collapsed ? "flex justify-center" : ""}`}>
         {collapsed ? (
-          <button onClick={signOut} title="Logout"
+          <button onClick={signOut} title="Logout" aria-label="Logout"
             className="w-9 h-9 rounded-xl border border-rose-500/25 bg-rose-500/[0.08] text-rose-400 hover:bg-rose-500/15 hover:border-rose-500/40 transition-all flex items-center justify-center">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -274,8 +275,8 @@ function NavLinkOrGroup({ item, activeId, collapsed, expanded, onToggle }: NavPr
           title={item.label}
           className={`w-full flex items-center justify-center px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ${
             isParentActive
-              ? "bg-gradient-to-r from-cyan-500/15 to-blue-500/10 text-cyan-400"
-              : "text-slate-500 hover:text-slate-200 hover:bg-white/[0.04]"
+              ? "bg-brand-50 text-brand-700"
+              : "text-muted hover:text-heading hover:bg-brand-50/60"
           }`}
         >
           {item.icon}
@@ -289,30 +290,31 @@ function NavLinkOrGroup({ item, activeId, collapsed, expanded, onToggle }: NavPr
           onClick={onToggle}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 group relative ${
             isParentActive
-              ? "text-cyan-400"
-              : "text-slate-500 hover:text-slate-200 hover:bg-white/[0.04]"
+              ? "text-brand-700"
+              : "text-muted hover:text-heading hover:bg-brand-50/60"
           }`}
         >
-          <span className={`flex-shrink-0 transition-colors ${isParentActive ? "text-cyan-400" : "text-slate-600 group-hover:text-slate-300"}`}>
+          <span className={`flex-shrink-0 transition-colors ${isParentActive ? "text-brand-700" : "text-muted group-hover:text-heading"}`}>
             {item.icon}
           </span>
           <span className="truncate flex-1 text-left">{item.label}</span>
-          <span className={`text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}>
+          <span className={`text-faint transition-transform ${expanded ? "rotate-180" : ""}`}>
             {icons.chevron}
           </span>
         </button>
 
         {/* Sub-menu */}
         {expanded && (
-          <div className="ml-3 mt-0.5 pl-4 border-l border-white/[0.06] space-y-0.5">
+          <div className="ml-3 mt-0.5 pl-4 border-l border-line space-y-0.5">
             {item.children!.map((child) => (
               <Link
                 key={child.id}
                 href={child.href}
+                aria-current={activeId === child.id ? "page" : undefined}
                 className={`flex items-center px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                   activeId === child.id
-                    ? "bg-cyan-500/10 text-cyan-300"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]"
+                    ? "bg-brand-50 text-brand-700 font-semibold"
+                    : "text-muted hover:text-heading hover:bg-brand-50/60"
                 }`}
               >
                 {child.label}
@@ -330,18 +332,18 @@ function NavLinkOrGroup({ item, activeId, collapsed, expanded, onToggle }: NavPr
     <Link
       href={item.href!}
       title={collapsed ? item.label : undefined}
+      aria-current={isActive ? "page" : undefined}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 group relative ${
         isActive
-          ? "bg-gradient-to-r from-cyan-500/15 to-blue-500/10 text-cyan-400 shadow-sm"
-          : "text-slate-500 hover:text-slate-200 hover:bg-white/[0.04]"
+          ? "bg-brand-50 text-brand-700 font-semibold"
+          : "text-muted hover:text-heading hover:bg-brand-50/60"
       } ${collapsed ? "justify-center" : ""}`}
     >
-      {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cyan-400 rounded-r-full" />}
-      <span className={`flex-shrink-0 transition-colors ${isActive ? "text-cyan-400" : "text-slate-600 group-hover:text-slate-300"}`}>
+      {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand-600 rounded-r-full" />}
+      <span className={`flex-shrink-0 transition-colors ${isActive ? "text-brand-700" : "text-muted group-hover:text-heading"}`}>
         {item.icon}
       </span>
       {!collapsed && <span className="truncate">{item.label}</span>}
-      {!collapsed && isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />}
     </Link>
   );
 }

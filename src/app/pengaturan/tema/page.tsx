@@ -38,12 +38,14 @@ function sameTheme(a: CustomTheme | null, b: CustomTheme | null): boolean {
 
 export default function ThemeSettingsPage() {
   const { theme, setTheme, custom, previewCustom, saveCustom } = useTheme();
-  const [draft, setDraft] = useState<Draft>(() => ({ light: fullFrom("light", undefined), dark: fullFrom("dark", undefined) }));
+  // Draft langsung dari warna tersimpan: bila diisi bawaan dulu, render pertama dianggap "ada perubahan"
+  // dan warna bawaan sempat dipasang ke seluruh app (bug: buka lagi halaman ini → tema kembali bawaan).
+  const [draft, setDraft] = useState<Draft>(() => ({ light: fullFrom("light", custom?.light), dark: fullFrom("dark", custom?.dark) }));
   const [hexText, setHexText] = useState<Partial<Record<CustomTokenKey, string>>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [rescue, setRescue] = useState(false);
-  const loadedFrom = useRef<string>("");
+  const loadedFrom = useRef<string>(JSON.stringify(custom ?? null));
 
   // Isi draft dari warna tersimpan (dan setiap kali yang tersimpan berubah dari luar)
   useEffect(() => {
@@ -60,8 +62,12 @@ export default function ThemeSettingsPage() {
   const dirty = !sameTheme(pending, custom);
   const cur = draft[theme];
 
-  // Ganti tab terang/gelap = ganti mode aplikasi; pasang lagi draft yang belum disimpan
+  // Ganti tab terang/gelap = ganti mode aplikasi; pasang lagi draft yang belum disimpan.
+  // Hanya saat mode BERUBAH — bukan saat halaman dibuka (tidak ada draft yang perlu dipasang).
+  const prevTheme = useRef(theme);
   useEffect(() => {
+    if (prevTheme.current === theme) return;
+    prevTheme.current = theme;
     if (dirty) previewCustom(pending ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);

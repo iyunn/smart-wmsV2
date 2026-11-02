@@ -3917,3 +3917,19 @@ Skenario restore dari backup sebelum 0004: `import-lock.sql` membuat tabel + kun
 [KEPUTUSAN] Uji `rollback.ps1` manual ditunda (Fillian): rollback otomatis di `deploy.ps1` sudah ada dan
 memakai mekanisme yang sama; uji di deploy berikutnya.
 [SISA] DHCP reservation; konfirmasi Supabase di-pause / Vercel V1 mati / tag `v1.0-cloud-ta`; UAT Tahap 7.
+
+### 2 Nov 2026 — Cutover V1 selesai + fix warna tampilan
+- Fillian: project Supabase & Vercel V1 di-pause. Tag `v1.0-cloud-ta` ditunda. Tahap 7 ✅.
+[KEPUTUSAN] UAT formal dilewati (Fillian): semua modul sudah dicoba & dipakai; kendala → perbaikan by complain.
+
+[MASALAH] Warna custom tersimpan, pindah halaman lalu kembali ke `/pengaturan/tema` → seluruh app kembali
+ke warna bawaan sampai di-refresh. Penyebab (`src/app/pengaturan/tema/page.tsx`): `draft` diinisialisasi
+dengan warna bawaan; di render pertama `pending` (null) ≠ `custom` (tersimpan) → `dirty` = true → efek
+`[theme]` yang juga jalan saat mount memanggil `previewCustom({})` = pasang bawaan. Efek pengisi draft
+lalu memperbaiki isian, tapi efek `[theme]` tidak jalan lagi. Saat refresh `custom` masih null di render
+pertama → tidak terjadi (sebab gejala "refresh = benar").
+Solusi: `draft` & `loadedFrom` diinisialisasi dari `custom`; efek pratinjau ulang hanya saat mode berganti
+(`prevTheme` ref).
+[VERIFIKASI] Playwright (sandbox, `next dev`): kode lama → `--bg` hilang di langkah 2 & 4 (bug tereproduksi);
+kode baru → `--bg` tetap `#203040` di semua langkah, isian editor = tersimpan, pratinjau tanpa simpan
+`#112233` lalu keluar → kembali `#203040`, tab terang/gelap tetap memasang draft; 0 page error. `tsc` 0 error.

@@ -221,16 +221,18 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 **Selesai bila:** backup terjadwal jalan (hasil 0x0); uji restore lolos; salinan luar disk terisi.
 **STOP**
 
-## Tahap 7 — UAT & cutover 🚧
-- Checklist UAT per modul (PRD §5.B) di server lokal
+## Tahap 7 — UAT & cutover ✅
+- ⏭ Checklist UAT formal **dilewati** (keputusan Fillian 2 Nov): semua modul sudah dicoba langsung di
+  server LAN dan dipakai harian; kendala diperbaiki berdasarkan laporan pengguna
 - ~~Freeze input V1 → dump terakhir → import → compare-counts~~ **dibatalkan 30 Okt (D-38):** `smartwms`
   sudah berisi data V1 + input baru V2; impor ulang = TRUNCATE = data V2 hilang
 - ✅ Freeze V1: Fillian (30 Okt) — **tidak ada input di V1 sejak impor 30 Okt** → salin selektif tidak diperlukan
 - ✅ Dump terakhir Supabase (schema `public`): `D:\backup-database\supabase-v1-final.dump` (1,4 MB, 30 Okt 18:23;
   tidak dihapus retensi backup karena namanya bukan `smartwms_*`). Salinan ke flashdisk: menyusul
-- Pengguna pindah ke URL LAN
-- **Hari itu juga:** pause project Supabase (atau cabut akses `anon`) — celah V1 tidak ditutup di Tahap 0; dump terakhir disimpan sebagai cadangan
-- Matikan project Vercel V1; setelah masa cadangan, archive repo V1 (read-only)
+- ✅ Pengguna pindah ke URL LAN (`http://192.168.20.27:3000`)
+- ✅ 2 Nov: project **Supabase di-pause** (anon key di repo publik tidak bisa dipakai lagi; bisa di-resume
+  ≤ 1 tahun) dan project **Vercel V1 di-pause** (URL V1 → 503) — Fillian
+- ⏸ Tag `v1.0-cloud-ta` di repo V1: nanti (belum diperlukan); archive repo V1 (read-only) setelah masa cadangan
 - Database dev sesudah Supabase di-pause: `db:import-v1` tidak bisa dipakai lagi → isi dev dari backup produksi
 **Selesai bila:** semua kriteria PRD §7 tercentang.
 **STOP**
@@ -251,6 +253,10 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 - Warna turunan dihitung CSS (`:root.theme-custom`, color-mix) — tanpa CSS/JS tambahan per halaman
 - Migrasi `0003_theme_custom` (`app_users.theme_custom jsonb`), `PATCH/GET /api/me`, anti-flash
 - Jalan keluar: `/pengaturan/tema?reset-theme`
+- 🐞 2 Nov (laporan Fillian): pindah halaman lalu kembali ke *Warna Tampilan* → seluruh app tampil warna
+  **bawaan** (refresh = benar lagi). Penyebab: draft halaman diisi warna bawaan di render pertama → dianggap
+  "ada perubahan" → efek pratinjau memasang warna bawaan. Fix: draft langsung dari warna tersimpan;
+  pratinjau ulang hanya saat mode terang/gelap benar-benar berganti
 **Selesai bila:** warna tersimpan & ikut antar-perangkat, tanpa kedipan saat halaman dibuka.
 **STOP**
 

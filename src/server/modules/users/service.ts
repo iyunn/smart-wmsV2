@@ -12,6 +12,7 @@ import { generateTempPassword } from "./temp-password";
 //   - Super Admin aktif TERAKHIR tidak bisa diturunkan, dinonaktifkan, atau dihapus
 //     (dicek di dalam transaksi dengan FOR UPDATE → aman bila dua admin klik bersamaan)
 //   - Nonaktif / reset password → semua sesi user itu dicabut
+//   - Edit data akun (username/NIK/email) boleh untuk akun sendiri juga; unik tanpa beda huruf besar/kecil
 // ══════════════════════════════════════════════════════════════════════════
 
 export class UserError extends Error {
@@ -110,6 +111,31 @@ export async function updateUser(actorId: string, targetId: string, patch: { rol
   });
 
   if (patch.status && patch.status !== "active") await revokeUserSessions(targetId);
+}
+
+/**
+ * Ubah username / NIK / email (Super Admin). Sesi tidak dicabut: data user dibaca ulang dari DB
+ * setiap request, jadi nama baru langsung dipakai (mis. kolom "Dibuat" SJ berikutnya).
+ * SJ lama tetap mencatat nama saat dibuat (`surat_jalan.created_by` = catatan sejarah).
+ */
+export async function updateUserProfile(
+  targetId: string,
+  patch: { username?: string; nik?: string; email?: string },
+) {
+  if (patch.username === undefined && patch.nik === undefined && patch.email === undefined) {
+    throw new UserError("Tidak ada perubahan.", 400);
+  }
+  try {
+    const r = await db
+      .updateTable("app_users")
+      .set({ ...patch, updated_at: new Date() })
+      .where("id", "=", targetId)
+      .executeTakeFirst();
+    if (Number(r.numUpdatedRows) === 0) throw new UserError("User tidak ditemukan.", 404);
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new UserError("Username atau email sudah dipakai akun lain.", 409);
+    throw err;
+  }
 }
 
 export async function deleteUser(actorId: string, targetId: string) {

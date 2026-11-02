@@ -3949,3 +3949,20 @@ tercetak sama. SJ lama tidak punya data pembuat → tetap "Admin GA" (tidak mene
 POST /api/sj dengan `created_by: "PALSU"` di body → DB `aditya`; GET /api/sj → `created_by = aditya`;
 import-wt → `aditya`; data uji dihapus. PDF dirender sebelum/sesudah (`renderToFile` → PNG): "12Unit" →
 "12   Unit", nama pembuat tercetak.
+✅ 9c dideploy (`7fee133`) dan dicek Fillian. Uji rollback manual masih ditunda (Fillian).
+
+### 2 Nov 2026 — Tahap 9d: edit user di Manajemen User
+Permintaan Fillian: edit nama salah satu user. Akun hanya punya `username` (login, tanpa spasi) — Fillian
+memilih **edit username saja** (bukan kolom "nama lengkap" baru).
+- `updateUserProfile()` (service users) + `PATCH /api/admin/users` cabang edit data akun (zod strict;
+  dicampur role/status → 400). Edit akun sendiri diizinkan (tidak menyentuh aturan Super Admin terakhir).
+- `src/app/admin/users/page.tsx`: `EditUserModal` (prefill, kirim yang berubah saja, Enter = simpan,
+  pesan error dari server), tombol pensil di semua baris; akun sendiri → `refresh()` sesi (Topbar ikut
+  berubah). Kolom aksi 220 → 290px + `whitespace-nowrap` (tombol "→ Super Admin" tidak terlipat dua baris).
+
+[KEPUTUSAN] Ganti nama tidak mengubah SJ lama — `created_by` tetap nama saat SJ dibuat.
+[VERIFIKASI] API (sandbox): rename 200; spasi 400 (pesan zod); username `BUDI` & email `Budi@…` bentrok →
+409; campur role+username → 400; admin biasa → 403; akun sendiri 200; ubah status (cara lama) tetap 200;
+id tidak ada → 404; sesi lama tetap aktif dan SJ baru tercatat `aditya.pratama`; login dengan nama baru OK.
+Playwright: modal → simpan → daftar berubah; bentrok → pesan tampil; edit akun sendiri → Topbar berubah;
+0 page error. `tsc` 0 error; Vitest 23/23. Data uji dihapus.

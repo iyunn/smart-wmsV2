@@ -106,6 +106,88 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   );
 }
 
+// ── Modal Edit User (username / NIK / email) ──────────────────────────────
+function EditUserModal({ user, isMe, onClose, onSuccess }: {
+  user: Profile; isMe: boolean; onClose: () => void; onSuccess: () => void;
+}) {
+  const [form, setForm] = useState({ username: user.username, nik: user.nik, email: user.email });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  // Hanya field yang berubah yang dikirim
+  const changes = Object.fromEntries(
+    (Object.keys(form) as (keyof typeof form)[])
+      .filter(k => form[k].trim() !== user[k])
+      .map(k => [k, form[k].trim()]),
+  );
+  const hasChanges = Object.keys(changes).length > 0;
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!form.username.trim() || !form.nik.trim() || !form.email.trim()) {
+      setError("Semua field wajib diisi."); return;
+    }
+    if (!hasChanges) { onClose(); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id, ...changes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "Gagal menyimpan."); return; }
+      onSuccess();
+      onClose();
+    } catch { setError("Tidak bisa terhubung ke server."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6">
+        <h3 className="text-sub font-semibold text-heading mb-1">Edit User{isMe && " (akun Anda)"}</h3>
+        <p className="text-small text-dim mb-4">
+          Login memakai username atau email yang baru. Surat Jalan yang sudah dibuat tetap mencatat nama lama.
+        </p>
+
+        {error && (
+          <div className="text-small text-danger bg-danger/[0.06] border border-danger/20 rounded-xl px-3 py-2.5 mb-4">{error}</div>
+        )}
+
+        <div className="space-y-3">
+          {([
+            { key: "username", label: "Username", type: "text",  hint: "Huruf, angka, titik, garis bawah, strip — tanpa spasi" },
+            { key: "nik",      label: "NIK",      type: "text",  hint: "" },
+            { key: "email",    label: "Email",    type: "email", hint: "" },
+          ] as const).map(({ key, label, type, hint }) => (
+            <div key={key}>
+              <label htmlFor={`edit-${key}`} className="block text-small font-medium text-muted mb-1">{label}</label>
+              <input id={`edit-${key}`} type={type} value={form[key]} onChange={set(key)}
+                onKeyDown={e => { if (e.key === "Enter") void handleSubmit(); }}
+                className="w-full bg-field border border-line text-body text-base2 placeholder:text-dim rounded-lg px-3 py-2 focus:outline-none focus:border-accent/50 transition-all" />
+              {hint && <p className="mt-1 text-tiny text-dim">{hint}</p>}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-line bg-field text-muted text-base2 hover:bg-field transition-all">
+            Batal
+          </button>
+          <button onClick={handleSubmit} disabled={loading || !hasChanges}
+            className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-heading text-base2 font-semibold hover:from-cyan-400 hover:to-blue-500 transition-all disabled:opacity-50">
+            {loading ? "Menyimpan..." : "Simpan"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Modal Konfirmasi Hapus ────────────────────────────────────────────────
 function DeleteModal({ user, onClose, onSuccess }: { user: Profile; onClose: () => void; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -225,7 +307,7 @@ function ResetPasswordModal({ user, onClose, onSuccess }: { user: Profile; onClo
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function AdminUsersPage() {
   const router = useRouter();
-  const { profile: myProfile, isSuperAdmin, loading: sessionLoading } = useSession();
+  const { profile: myProfile, isSuperAdmin, loading: sessionLoading, refresh: refreshSession } = useSession();
 
   const [users, setUsers]         = useState<Profile[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -233,6 +315,7 @@ export default function AdminUsersPage() {
   const [showAdd, setShowAdd]     = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
   const [resetTarget, setResetTarget]   = useState<Profile | null>(null);
+  const [editTarget, setEditTarget]     = useState<Profile | null>(null);
   const [pageError, setPageError]       = useState("");
 
   useEffect(() => {
@@ -343,7 +426,7 @@ export default function AdminUsersPage() {
               Semua User ({users.length})
             </h2>
             <div className="rounded-2xl border border-line bg-surface overflow-hidden">
-              <div className="grid grid-cols-[1fr_120px_110px_100px_220px] gap-3 px-5 py-3 border-b border-line text-tiny font-semibold uppercase tracking-widest text-dim">
+              <div className="grid grid-cols-[1fr_120px_110px_100px_290px] gap-3 px-5 py-3 border-b border-line text-tiny font-semibold uppercase tracking-widest text-dim">
                 <span>User</span><span>NIK</span><span>Role</span><span>Status</span><span className="text-right">Aksi</span>
               </div>
               {loading ? (
@@ -353,7 +436,7 @@ export default function AdminUsersPage() {
               ) : users.map(u => {
                 const isMe = u.id === myProfile?.id;
                 return (
-                  <div key={u.id} className="grid grid-cols-[1fr_120px_110px_100px_220px] gap-3 items-center px-5 py-3 border-b border-line last:border-0 hover:bg-panel">
+                  <div key={u.id} className="grid grid-cols-[1fr_120px_110px_100px_290px] gap-3 items-center px-5 py-3 border-b border-line last:border-0 hover:bg-panel">
                     <div>
                       <p className="text-base2 font-medium text-heading">
                         {u.username} {isMe && <span className="text-tiny text-accent ml-1">(Anda)</span>}
@@ -372,27 +455,34 @@ export default function AdminUsersPage() {
                       {STATUS_LABEL[u.status]}
                     </span>
                     <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => setEditTarget(u)} disabled={actionId === u.id}
+                        className="p-1.5 rounded-lg text-accent/70 hover:text-accent hover:bg-accent/10 transition-all disabled:opacity-50"
+                        title="Edit user" aria-label={`Edit ${u.username}`}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
                       {!isMe && u.status === "active" && u.role !== "super_admin" && (
                         <button onClick={() => updateUser(u.id, { role: "super_admin" })} disabled={actionId === u.id}
-                          className="px-2.5 py-1 rounded-lg text-tiny font-medium bg-info/10 border border-info/20 text-info hover:bg-info/20 transition-all disabled:opacity-50">
+                          className="whitespace-nowrap px-2.5 py-1 rounded-lg text-tiny font-medium bg-info/10 border border-info/20 text-info hover:bg-info/20 transition-all disabled:opacity-50">
                           → Super Admin
                         </button>
                       )}
                       {!isMe && u.role === "super_admin" && (
                         <button onClick={() => updateUser(u.id, { role: "admin" })} disabled={actionId === u.id}
-                          className="px-2.5 py-1 rounded-lg text-tiny font-medium bg-field border border-line text-muted hover:bg-field transition-all disabled:opacity-50">
+                          className="whitespace-nowrap px-2.5 py-1 rounded-lg text-tiny font-medium bg-field border border-line text-muted hover:bg-field transition-all disabled:opacity-50">
                           → Admin
                         </button>
                       )}
                       {!isMe && u.status === "active" && (
                         <button onClick={() => updateUser(u.id, { status: "rejected" })} disabled={actionId === u.id}
-                          className="px-2.5 py-1 rounded-lg text-tiny font-medium bg-warning/10 border border-warning/20 text-warning hover:bg-warning/20 transition-all disabled:opacity-50">
+                          className="whitespace-nowrap px-2.5 py-1 rounded-lg text-tiny font-medium bg-warning/10 border border-warning/20 text-warning hover:bg-warning/20 transition-all disabled:opacity-50">
                           Nonaktifkan
                         </button>
                       )}
                       {!isMe && u.status !== "active" && (
                         <button onClick={() => updateUser(u.id, { status: "active" })} disabled={actionId === u.id}
-                          className="px-2.5 py-1 rounded-lg text-tiny font-medium bg-success/10 border border-success/20 text-success hover:bg-success/20 transition-all disabled:opacity-50">
+                          className="whitespace-nowrap px-2.5 py-1 rounded-lg text-tiny font-medium bg-success/10 border border-success/20 text-success hover:bg-success/20 transition-all disabled:opacity-50">
                           Aktifkan
                         </button>
                       )}
@@ -414,7 +504,6 @@ export default function AdminUsersPage() {
                           </svg>
                         </button>
                       )}
-                      {isMe && <span className="text-tiny text-dim italic">—</span>}
                     </div>
                   </div>
                 );
@@ -430,6 +519,11 @@ export default function AdminUsersPage() {
       )}
       {deleteTarget && (
         <DeleteModal user={deleteTarget} onClose={() => setDeleteTarget(null)} onSuccess={fetchUsers} />
+      )}
+      {editTarget && (
+        <EditUserModal user={editTarget} isMe={editTarget.id === myProfile?.id}
+          onClose={() => setEditTarget(null)}
+          onSuccess={() => { void fetchUsers(); if (editTarget.id === myProfile?.id) void refreshSession(); }} />
       )}
       {resetTarget && (
         <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} onSuccess={fetchUsers} />

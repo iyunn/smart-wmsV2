@@ -260,7 +260,7 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 **Selesai bila:** warna tersimpan & ikut antar-perangkat, tanpa kedipan saat halaman dibuka.
 **STOP**
 
-### 9c — Surat Jalan: nama pembuat & jarak kolom (permintaan Fillian 2 Nov) 🚧
+### 9c — Surat Jalan: nama pembuat & jarak kolom (permintaan Fillian 2 Nov) ✅
 - Kolom tanda tangan **"Dibuat"** di PDF = username akun yang membuat SJ (dulu selalu "Admin GA").
   Disimpan **server** di `surat_jalan.created_by` dari sesi (`POST /api/sj`, `POST /api/sj/import-wt`) —
   nilai dari browser diabaikan; edit SJ tidak mengubah pembuat. Cetak ulang dari Daftar SJ memakai
@@ -268,6 +268,17 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
   (`src/lib/sjCreator.ts`)
 - PDF: kolom Qty rata tengah (7%) + Satuan diberi jarak kiri (9%), Keterangan 25% → 23%
 **Selesai bila:** SJ baru tercetak dengan nama pembuat; Qty & Satuan tidak menempel.
+- ✅ 2 Nov: deploy `7fee133`, dicek Fillian
+**STOP**
+
+### 9d — Manajemen User: edit data akun (permintaan Fillian 2 Nov) 🚧
+- Tombol **Edit** (ikon pensil) di setiap baris "Semua User", termasuk akun sendiri → modal username / NIK /
+  email (hanya field yang berubah dikirim). Pilihan Fillian: cukup username (tanpa kolom "nama lengkap")
+- `PATCH /api/admin/users { id, username?, nik?, email? }` (Super Admin; zod strict; tidak boleh digabung
+  dengan role/status) → `updateUserProfile()`; unik tanpa beda huruf besar/kecil → 409
+- Sesi tidak dicabut: nama baru langsung dipakai (sesi dibaca ulang dari DB per request); SJ lama tetap
+  mencatat nama lama (`created_by` = catatan sejarah)
+**Selesai bila:** Super Admin bisa mengganti username user lain/sendiri; login & SJ baru memakai nama baru.
 **STOP**
 
 ### 9b — Pemilih warna lanjutan (rencana)

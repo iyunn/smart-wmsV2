@@ -3966,3 +3966,21 @@ memilih **edit username saja** (bukan kolom "nama lengkap" baru).
 id tidak ada → 404; sesi lama tetap aktif dan SJ baru tercatat `aditya.pratama`; login dengan nama baru OK.
 Playwright: modal → simpan → daftar berubah; bentrok → pesan tampil; edit akun sendiri → Topbar berubah;
 0 page error. `tsc` 0 error; Vitest 23/23. Data uji dihapus.
+✅ 9d dideploy (`fcd7a51`).
+
+### 2 Nov 2026 — Rencana: 9b dulu, lalu 9e Bounty Hunter
+Fillian ingin 9b (warna lanjutan) dikerjakan dulu, lalu fitur baru **Bounty Hunter** (catatan pinjaman/janji AS).
+[KEPUTUSAN] Bounty: data AS = dropdown + tambah baru (inisial huruf besar); selesai sebagian diizinkan;
+semua user boleh menghapus. Detail di ROADMAP 9e.
+[KEPUTUSAN] 9b dipecah: 9b-1 preset & bagikan, 9b-2 roda warna; edit warna turunan satu per satu tidak
+dikerjakan (lihat ROADMAP).
+
+### 2 Nov 2026 — Tahap 9b-1: preset & bagikan warna
+- `presets.ts` (7 preset terang+gelap), `share.ts` (ekspor/impor JSON `smartwms-tema` v1), `presets.test.ts`.
+- `/pengaturan/tema`: bagian **Preset** (kartu dengan cuplikan warna mode aktif, tanda "dipakai"), kartu
+  **Bagikan warna** (Unduh file, Salin kode, Buka file, Tempel kode). Preset & impor hanya mengisi draft.
+[VERIFIKASI] Vitest 42/42 (19 baru: 14 uji kontras preset — semua lolos 4.5:1 tanpa penyesuaian ulang
+selain nilai awal yang dipilih; 5 uji ekspor/impor termasuk kunci asing, `url(...)`, versi lebih baru, > 20 KB).
+Playwright: preset Laut → `--accent` #7CCFD8 (gelap) / #0F6E7A (terang), simpan → DB, unduh file → format
+benar, Bawaan → impor file kembali → Laut aktif lagi, kode `{"halo":1}` ditolak dengan pesan, kode polos
+diterima; 0 page error. `tsc` 0 error.

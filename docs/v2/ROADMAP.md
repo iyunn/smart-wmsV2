@@ -271,7 +271,7 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 - ✅ 2 Nov: deploy `7fee133`, dicek Fillian
 **STOP**
 
-### 9d — Manajemen User: edit data akun (permintaan Fillian 2 Nov) 🚧
+### 9d — Manajemen User: edit data akun (permintaan Fillian 2 Nov) ✅
 - Tombol **Edit** (ikon pensil) di setiap baris "Semua User", termasuk akun sendiri → modal username / NIK /
   email (hanya field yang berubah dikirim). Pilihan Fillian: cukup username (tanpa kolom "nama lengkap")
 - `PATCH /api/admin/users { id, username?, nik?, email? }` (Super Admin; zod strict; tidak boleh digabung
@@ -279,10 +279,33 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 - Sesi tidak dicabut: nama baru langsung dipakai (sesi dibaca ulang dari DB per request); SJ lama tetap
   mencatat nama lama (`created_by` = catatan sejarah)
 **Selesai bila:** Super Admin bisa mengganti username user lain/sendiri; login & SJ baru memakai nama baru.
+- ✅ 2 Nov: deploy `fcd7a51` (Fillian)
 **STOP**
 
-### 9b — Pemilih warna lanjutan (rencana)
-Roda warna, preset tema, ekspor/impor tema, edit warna turunan satu per satu.
+### 9b — Pemilih warna lanjutan 🚧 (Fillian 2 Nov: dikerjakan sebelum 9e)
+Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek:
+- **9b-1 Preset & bagikan warna** ✅ kode — `src/lib/theme/presets.ts`: 7 preset (Bawaan, Laut, Hutan, Senja,
+  Anggur, Grafit, Kontras tinggi) untuk terang & gelap, **dijaga test kontras AA 4.5:1** (11 pasangan × 2 mode);
+  klik = isi draft (belum tersimpan), kartu aktif ditandai "dipakai". `src/lib/theme/share.ts`: Unduh file
+  `smartwms-warna.json` / Salin kode / Buka file / Tempel kode (format `smartwms-tema` v1, disaring
+  `sanitizeCustomTheme`, maks 20 KB). Tanpa perubahan database/API.
+- **9b-2 Roda warna** — pemilih warna sendiri (roda hue + kotak saturasi/kecerahan) menggantikan pemilih
+  bawaan browser yang tampilannya beda-beda di tiap browser
+- ~~Edit warna turunan satu per satu~~ — **tidak dikerjakan**: ±50 warna turunan dihitung dari 18 warna dasar
+  (D-37); membukanya = data per user ±4× lebih besar dan warna mudah tidak serasi. Ganti warna dasar sudah
+  mengubah turunannya
+
+### 9e — Bounty Hunter: catatan pinjaman/janji AS (rencana, setelah 9b)
+Masalah (Fillian 2 Nov): AS (Area Supervisor, inisial mis. "JTO") meminjam barang (mis. printer dot matrix
+untuk toko kelolaannya) dan berjanji mengembalikan barang rusaknya; janji terlupa, atau barang dikembalikan
+ke orang lain. Semua user perlu bisa melihat & memperbarui.
+- Input: AS (**dropdown + tambah baru**, inisial disimpan huruf besar → "jto" = "JTO"), jenis barang
+  (dropdown sama dengan Buat SJ), jumlah, toko (opsional, dropdown Tujuan SJ), keterangan, tanggal ditetapkan
+- Daftar per AS: kekurangan apa saja, sejak kapan, **nilai bounty = Rp10.000 × jumlah barang belum kembali**
+  (naik bila utang baru, turun saat diselesaikan)
+- Ceklist **bisa sebagian** (kembali 1 dari 2 → sisa tetap utang, bounty turun sesuai jumlah); catat siapa &
+  kapan menandai selesai
+- **Semua user** boleh tambah, edit, ceklist, dan hapus (keputusan Fillian)
 
 ### Lainnya ⏸
 Menunggu pilihan Fillian dari PRD §5.D.

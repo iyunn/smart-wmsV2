@@ -5,6 +5,8 @@
 // Semua warna dasar tema light & dark bebas diubah; perubahan langsung terlihat di seluruh
 // aplikasi (pratinjau) dan baru tersimpan ke akun saat "Simpan". Keluar tanpa menyimpan =
 // kembali ke warna tersimpan. Jalan keluar bila layar tak terbaca: /pengaturan/tema?reset-theme
+// Tahap 9b: preset sekali klik (src/lib/theme/presets.ts) dan bagikan warna lewat file/kode JSON
+// (src/lib/theme/share.ts) — keduanya hanya mengisi draft; tersimpan tetap lewat "Simpan".
 // ══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +17,8 @@ import {
   CUSTOM_TOKENS, DEFAULT_TOKENS, HEX_COLOR, contrastRatio, diffFromDefault,
   type CustomTheme, type CustomThemeSet, type CustomTokenKey, type ThemeMode,
 } from "@/lib/theme/custom";
+import { THEME_PRESETS, type ThemePreset } from "@/lib/theme/presets";
+import { exportTheme, parseThemeImport } from "@/lib/theme/share";
 
 type Full = Record<CustomTokenKey, string>;
 type Draft = Record<ThemeMode, Full>;
@@ -35,6 +39,12 @@ function toCustom(draft: Draft): CustomTheme | null {
 function sameTheme(a: CustomTheme | null, b: CustomTheme | null): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
+
+function draftFrom(theme: CustomTheme | null): Draft {
+  return { light: fullFrom("light", theme?.light), dark: fullFrom("dark", theme?.dark) };
+}
+
+const PRESET_THEMES = THEME_PRESETS.map((p) => ({ preset: p, theme: toCustom(draftFrom({ light: p.light, dark: p.dark })) }));
 
 export default function ThemeSettingsPage() {
   const { theme, setTheme, custom, previewCustom, saveCustom } = useTheme();
@@ -93,6 +103,57 @@ export default function ThemeSettingsPage() {
     });
     setHexText({});
     setMessage(null);
+  };
+
+  /** Ganti seluruh draft (preset / impor) → pratinjau langsung, belum tersimpan. */
+  const replaceDraft = (theme: CustomTheme | null, note: string) => {
+    const next = draftFrom(theme);
+    setDraft(next);
+    setHexText({});
+    previewCustom(toCustom(next) ?? {});
+    setMessage({ kind: "ok", text: note });
+  };
+
+  const applyPreset = (p: ThemePreset, theme: CustomTheme | null) =>
+    replaceDraft(theme, `Preset "${p.name}" dipasang untuk tema terang & gelap — tekan Simpan untuk menyimpan.`);
+
+  // ── Bagikan warna ───────────────────────────────────────────────────────
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const importText = (text: string, source: string) => {
+    const r = parseThemeImport(text);
+    if (!r.ok) { setMessage({ kind: "error", text: r.error }); return false; }
+    replaceDraft(r.theme, `Warna dari ${source} dimuat — periksa pratinjau, lalu tekan Simpan.`);
+    return true;
+  };
+
+  const downloadFile = () => {
+    const blob = new Blob([exportTheme(pending)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "smartwms-warna.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(exportTheme(pending));
+      setMessage({ kind: "ok", text: "Kode warna disalin — tempel di halaman Warna Tampilan akun lain." });
+    } catch {
+      setMessage({ kind: "error", text: "Browser menolak menyalin otomatis — pakai Unduh file." });
+    }
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 20_000) { setMessage({ kind: "error", text: "File terlalu besar — bukan file warna SmartWMS." }); return; }
+    importText(await f.text(), `file "${f.name}"`);
   };
 
   const cancel = () => {
@@ -161,6 +222,37 @@ export default function ThemeSettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* ── Preset ─────────────────────────────────────────────── */}
+          <section className="rounded-2xl border border-line bg-surface px-5 py-4" aria-label="Preset warna">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-[14px] font-semibold text-heading">Preset</p>
+              <p className="text-[12px] text-muted">Satu klik mengisi tema terang &amp; gelap. Masih bisa diubah sebelum disimpan.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+              {PRESET_THEMES.map(({ preset, theme: pt }) => {
+                const c = { ...DEFAULT_TOKENS[theme], ...preset[theme] } as Full;
+                const active = sameTheme(pt, pending);
+                return (
+                  <button key={preset.id} type="button" onClick={() => applyPreset(preset, pt)} aria-pressed={active}
+                    className={`group rounded-xl border p-2.5 text-left transition-colors ${active ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-line-strong"}`}>
+                    <div className="flex h-12 overflow-hidden rounded-lg border" style={{ background: c.bg, borderColor: c.border }}>
+                      <div className="m-1.5 flex flex-1 flex-col justify-center gap-1 rounded-md px-2" style={{ background: c.surface }}>
+                        <span className="h-1.5 w-3/4 rounded-full" style={{ background: c["text-strong"] }} />
+                        <span className="h-1.5 w-1/2 rounded-full" style={{ background: c.accent }} />
+                      </div>
+                      <div className="my-1.5 mr-1.5 flex w-6 flex-col gap-1">
+                        <span className="flex-1 rounded" style={{ background: c["accent-solid"] }} />
+                        <span className="flex-1 rounded" style={{ background: c.cga1 }} />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[13px] font-semibold text-heading">{preset.name}{active && <span className="ml-1.5 text-[11px] font-medium text-accent">dipakai</span>}</p>
+                    <p className="text-[12px] text-muted leading-snug">{preset.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             {/* ── Editor ───────────────────────────────────────────── */}
@@ -284,6 +376,41 @@ export default function ThemeSettingsPage() {
                   Layar jadi sulit dibaca? Buka <span className="font-mono text-body">/pengaturan/tema?reset-theme</span> untuk
                   menampilkan warna bawaan sementara, lalu tekan &ldquo;Kembalikan ke bawaan&rdquo;.
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-line bg-surface p-5 space-y-3">
+                <div>
+                  <p className="text-[14px] font-semibold text-heading">Bagikan warna</p>
+                  <p className="mt-1 text-[12px] text-muted">Kirim warna yang sedang tampil ke rekan, atau pakai warna dari mereka.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={downloadFile} className="rounded-xl border border-line-strong px-3 py-2 text-[13px] font-medium text-body hover:text-heading">
+                    Unduh file
+                  </button>
+                  <button onClick={copyCode} className="rounded-xl border border-line-strong px-3 py-2 text-[13px] font-medium text-body hover:text-heading">
+                    Salin kode
+                  </button>
+                  <button onClick={() => fileRef.current?.click()} className="rounded-xl border border-line-strong px-3 py-2 text-[13px] font-medium text-body hover:text-heading">
+                    Buka file
+                  </button>
+                  <button onClick={() => setPasteOpen((o) => !o)} aria-expanded={pasteOpen}
+                    className="rounded-xl border border-line-strong px-3 py-2 text-[13px] font-medium text-body hover:text-heading">
+                    Tempel kode
+                  </button>
+                </div>
+                <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={onFile} aria-label="Pilih file warna" />
+                {pasteOpen && (
+                  <div className="space-y-2">
+                    <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={5} spellCheck={false}
+                      aria-label="Kode warna" placeholder='{"format":"smartwms-tema", ...}'
+                      className="w-full rounded-lg border border-line-strong bg-field px-3 py-2 font-mono text-[12px] text-body placeholder:text-dim" />
+                    <button onClick={() => { if (importText(pasteText, "kode")) { setPasteText(""); setPasteOpen(false); } }}
+                      disabled={!pasteText.trim()}
+                      className="w-full rounded-xl bg-linear-to-br from-brand-500 to-brand-700 px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50">
+                      Pakai kode ini
+                    </button>
+                  </div>
+                )}
               </div>
             </aside>
           </div>

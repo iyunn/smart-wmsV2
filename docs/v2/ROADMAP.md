@@ -191,6 +191,8 @@ Runbook: `docs/v2/DEPLOY-LOKAL.md`.
   `smartwms` (`db:import-v1` dengan `migrate.env` produksi)
 - ✅ Pengaman data (D-38): kunci `import_v1_locked` di `smartwms` dipasang `deploy.ps1`; `import-v1.ts`
   menolak database berkunci / berisi data. **Sejak 30 Okt `smartwms` = sumber kebenaran — tidak ada impor ulang**
+- ✅ 30 Okt di PC: deploy `bbf2b71`, `status.ps1` → "Kunci impor V1 : aktif sejak 2026-10-30 11:17 UTC";
+  `releases` dibatasi 3 rilis (±34 MB/rilis), `src` ±670 MB stabil
 - Sisa: restart PC tanpa login, `rollback.ps1` + deploy ulang, DHCP reservation MAC Ethernet
   tanpa login, deploy kedua + rollback; DHCP reservation
 **Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
@@ -208,21 +210,23 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 - `docs/v2/MANUAL-ADMIN-SERVER.md`: manual harian admin server; DEPLOY-LOKAL §8–9
 - ✅ 30 Okt di PC: deploy `7b183a5` + backup predeploy (1,4 MB), task harian OK, uji restore 17 tabel
   identik dengan produksi, akun viewer dibuat
-- Folder backup dipindah ke `D:\backup-database` (permintaan Fillian; partisi D: — bukan luar disk)
+- Folder backup dipindah ke `D:\backup-database` (permintaan Fillian; partisi D: — bukan luar disk).
+  ✅ Dipastikan 30 Okt: `setup-backup.ps1 -BackupDir`, semua backup sejak 16:26 + harian 18:30 di D:
 - Menunggu: **salinan luar disk** (hardisk eksternal / PC lain)
 **Selesai bila:** backup terjadwal jalan (hasil 0x0); uji restore lolos; salinan luar disk terisi.
 **STOP**
 
-## Tahap 7 — UAT & cutover ⬜
+## Tahap 7 — UAT & cutover 🚧
 - Checklist UAT per modul (PRD §5.B) di server lokal
 - ~~Freeze input V1 → dump terakhir → import → compare-counts~~ **dibatalkan 30 Okt (D-38):** `smartwms`
   sudah berisi data V1 + input baru V2; impor ulang = TRUNCATE = data V2 hilang
-- Freeze input V1 **sesegera mungkin** (V2 sudah dipakai). Bila ada input V1 sesudah impor 30 Okt:
-  bandingkan per `id` (Supabase vs `smartwms`) dan salin **hanya baris yang belum ada** — tanpa TRUNCATE,
-  alat dibuat bila memang ada selisih
+- ✅ Freeze V1: Fillian (30 Okt) — **tidak ada input di V1 sejak impor 30 Okt** → salin selektif tidak diperlukan
+- ✅ Dump terakhir Supabase (schema `public`): `D:\backup-database\supabase-v1-final.dump` (1,4 MB, 30 Okt 18:23;
+  tidak dihapus retensi backup karena namanya bukan `smartwms_*`). Salinan ke flashdisk: menyusul
 - Pengguna pindah ke URL LAN
 - **Hari itu juga:** pause project Supabase (atau cabut akses `anon`) — celah V1 tidak ditutup di Tahap 0; dump terakhir disimpan sebagai cadangan
 - Matikan project Vercel V1; setelah masa cadangan, archive repo V1 (read-only)
+- Database dev sesudah Supabase di-pause: `db:import-v1` tidak bisa dipakai lagi → isi dev dari backup produksi
 **Selesai bila:** semua kriteria PRD §7 tercentang.
 **STOP**
 

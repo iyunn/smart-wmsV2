@@ -3895,3 +3895,17 @@ sukses 14 tabel; `import-lock.sql` dua kali → satu baris; impor berkunci + sem
 Skenario restore dari backup sebelum 0004: `import-lock.sql` membuat tabel + kunci, lalu migrasi 0004
 (`if not exists`) tetap jalan. `tsc` 0 error; Vitest 21/21.
 [SISA] Fillian: konfirmasi apakah V1 masih dipakai input sesudah 30 Okt (menentukan perlu salin selektif).
+
+### Verifikasi server pengaman data + freeze V1
+- Deploy `bbf2b71` di PC; `status.ps1` → kunci impor V1 aktif sejak 2026-10-30 11:17 UTC, health ok.
+- Ukuran `C:\SmartWMS`: `releases` 101 MB (3 rilis — pembersihan `-Keep 3` jalan), `src` 671 MB
+  (`node_modules` + build, dipasang ulang tiap deploy), lain-lain < 20 MB. Backup harian 1,4 MB.
+- Backup: semua file sejak 16:26 sudah di `D:\backup-database`; `C:\SmartWMS\backups` hanya 2 duplikat
+  lama (dihapus Fillian). `setup-backup.ps1 -BackupDir D:\backup-database` dijalankan ulang untuk memastikan.
+- Dump terakhir Supabase: `D:\backup-database\supabase-v1-final.dump` (schema public, 1,4 MB).
+
+[KEPUTUSAN] Fillian: tidak ada input di V1 sejak impor 30 Okt → tidak perlu salin selektif; Tahap 7 🚧.
+[MASALAH] Perintah `powershell -File deploy\windows\backup.ps1` dijalankan di bash MSYS2 → `\` hilang →
+"deploywindowsbackup.ps1 does not exist". Solusi: path dengan `/` (chat-rule §2).
+[SISA] Pause Supabase, matikan Vercel V1, tag `v1.0-cloud-ta`; salin dump ke flashdisk; salinan luar disk;
+6a: restart tanpa login, rollback, DHCP reservation; rotasi password viewer.

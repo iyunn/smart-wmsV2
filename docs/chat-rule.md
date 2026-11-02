@@ -47,6 +47,10 @@ Kerja hotfix V1 → baca dari repo V1 (`.../smart-warehouse-management-system/ma
   `/d/BABAYAGA/...` (bukan `D:\...`); perintah PowerShell dipanggil lewat `powershell.exe -NoProfile -Command '...'`.
 - Pengecualian: script server `deploy\windows\*.ps1` dijalankan di **PowerShell Administrator**
   (`docs/v2/DEPLOY-LOKAL.md` §2) karena memasang service, firewall, dan hak akses folder.
+  Bila dijalankan dari **bash MSYS2** (dibuka "Run as administrator"), path ditulis dengan **`/`** —
+  bash membuang `\` (`deploy\windows\backup.ps1` → `deploywindowsbackup.ps1`, 30 Okt):
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File deploy/windows/status.ps1`.
+  Claude selalu menyebut untuk terminal mana perintah itu ditulis.
 - Format commit message: **1 baris judul + bullets ringkas**. Prefix: `feat`, `fix`, `refactor`, `docs`, `chore`, `security`; sertakan tahap, mis. `feat(v2-3): auth sendiri`.
   Claude memberikannya sebagai perintah siap tempel `git commit -F - <<'MSG' … MSG` (bukan `-m "..."`
   dengan placeholder — commit `fc70454` sempat ber-judul "..." karena itu).

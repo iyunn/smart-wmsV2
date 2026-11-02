@@ -3997,3 +3997,22 @@ roda). Playwright: klik cincin kanan → hue 90 (`--accent` #78D11F, kolom hex i
 klik kotak → "kepekatan 80%, kecerahan 70%", Shift+→ → 280, ↑ → kecerahan 71%, kepekatan 0 → hue tetap,
 klik warna lain di tema → dipakai, Esc & klik luar menutup, ketik `#00FF00` → roda hue 120, warna paling
 bawah (Ungu/LPP) → panel membuka ke atas dan utuh di layar; 0 page error. `tsc` 0 error.
+✅ 9b-2 dideploy (`0d2d7b3`; judul commit tertulis "eat(...)" — huruf f terpotong saat ditempel).
+
+### 2 Nov 2026 — Tahap 9e-1: Bounty Hunter — database + API (ARCHITECTURE D-39)
+- Migrasi `0005_bounty`: `bounty_as`, `bounty_items`, `bounty_events`; codegen `types.ts` (ikut `app_settings`
+  dari 0004 yang belum pernah di-codegen — hanya tipe, role app tetap tidak punya akses).
+- `src/lib/bounty.ts`: `BOUNTY_PER_BARANG` 10.000, `normalizeInisial`, `INISIAL_PATTERN`, `sisaBarang`,
+  `nilaiBounty`, `formatRupiah`, `todayWib` + test.
+- `service.ts`: list (AS + total, item + toko + riwayat), buat (AS dibuat otomatis bila belum ada), ubah
+  (catat ringkasan perubahan), selesai sebagian/penuh, batal, hapus (soft). Route `/api/bounty`.
+
+[KEPUTUSAN] Hapus = soft delete walau semua user boleh menghapus — jejak tetap ada di DB.
+[KEPUTUSAN] Tanggal default = hari ini WIB dari aplikasi, bukan `current_date` (UTC; jam 00:00–06:59 WIB
+masih tanggal kemarin).
+[VERIFIKASI] Vitest 48/48 (3 baru). API (sandbox, 2 user): " jto " & "JTO" → satu AS; inisial `jto!`, qty 0,
+toko tidak ada, kolom asing, aksi tidak dikenal, tanggal `2026-13-45`/`2026-02-30` → 400 berbahasa Indonesia;
+total JTO 30.000 → selesai 1 dari 2 → 20.000; selesai melebihi sisa → 400; **dua user menandai sisa terakhir
+bersamaan → 200 + 400, DB qty_selesai tidak melebihi qty**; batal → kembali; ubah qty < sudah kembali → 400,
+= sudah kembali → lunas (`selesai_at` terisi); pindah AS; hapus → hilang dari daftar, item terhapus → 404;
+tanpa login → 401; riwayat lengkap dengan nama user. Migrasi down/up OK. `tsc` 0 error. Data uji dihapus.

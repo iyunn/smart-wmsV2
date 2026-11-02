@@ -290,7 +290,7 @@ Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek
   `smartwms-warna.json` / Salin kode / Buka file / Tempel kode (format `smartwms-tema` v1, disaring
   `sanitizeCustomTheme`, maks 20 KB). Tanpa perubahan database/API.
 - ✅ 9b-1 dideploy (`59bb5e9`)
-- **9b-2 Roda warna** ✅ kode — `src/components/ColorPicker.tsx`: tombol contoh warna → panel roda (cincin hue
+- **9b-2 Roda warna** ✅ (deploy `0d2d7b3`) — `src/components/ColorPicker.tsx`: tombol contoh warna → panel roda (cincin hue
   + kotak kepekatan/kecerahan) + "warna lain di tema ini"; seret mouse/jari, keyboard (panah ±1,
   Shift ±10), hue diingat saat warna abu-abu, Esc/klik luar menutup, panel membuka ke atas bila ruang di
   bawah kurang. Konversi HSV di `src/lib/theme/color.ts` (diuji). Kolom hex tetap ada
@@ -298,7 +298,7 @@ Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek
   (D-37); membukanya = data per user ±4× lebih besar dan warna mudah tidak serasi. Ganti warna dasar sudah
   mengubah turunannya
 
-### 9e — Bounty Hunter: catatan pinjaman/janji AS (rencana, setelah 9b)
+### 9e — Bounty Hunter: catatan pinjaman/janji AS 🚧
 Masalah (Fillian 2 Nov): AS (Area Supervisor, inisial mis. "JTO") meminjam barang (mis. printer dot matrix
 untuk toko kelolaannya) dan berjanji mengembalikan barang rusaknya; janji terlupa, atau barang dikembalikan
 ke orang lain. Semua user perlu bisa melihat & memperbarui.
@@ -309,6 +309,14 @@ ke orang lain. Semua user perlu bisa melihat & memperbarui.
 - Ceklist **bisa sebagian** (kembali 1 dari 2 → sisa tetap utang, bounty turun sesuai jumlah); catat siapa &
   kapan menandai selesai
 - **Semua user** boleh tambah, edit, ceklist, dan hapus (keputusan Fillian)
+- **9e-1 Database + API** ✅ kode — migrasi `0005_bounty` (D-39), `src/lib/bounty.ts` (aturan + test),
+  `src/server/modules/bounty/service.ts`, `GET/POST/PATCH/DELETE /api/bounty` (zod strict, pesan Indonesia).
+  Hapus = soft delete + riwayat
+- **9e-2 Halaman** — `/bounty`: kartu AS urut bounty terbesar, daftar utang + ceklist (jumlah yang kembali +
+  catatan), form tambah (AS dropdown + baru, jenis = master jenis SJ, toko = Tujuan SJ), riwayat per item;
+  menu Sidebar
+**Selesai bila:** semua user bisa mencatat, menandai kembali (sebagian/semua), dan melihat total bounty per AS.
+**STOP**
 
 ### Lainnya ⏸
 Menunggu pilihan Fillian dari PRD §5.D.

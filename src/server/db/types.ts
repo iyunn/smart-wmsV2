@@ -25,6 +25,12 @@ export type Numeric = ColumnType<number, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AppSettings {
+  key: string;
+  updated_at: Generated<Timestamp>;
+  value: Generated<Json>;
+}
+
 export interface AppUsers {
   created_at: Generated<Timestamp>;
   email: string;
@@ -80,6 +86,41 @@ export interface AssetsRaw {
   tanggal_dokumen: string | null;
   toko: string | null;
   uploaded_at: Generated<string | null>;
+}
+
+export interface BountyAs {
+  created_at: Generated<Timestamp>;
+  created_by: Generated<string>;
+  id: Generated<string>;
+  inisial: string;
+  nama: Generated<string>;
+}
+
+export interface BountyEvents {
+  aksi: string;
+  at: Generated<Timestamp>;
+  catatan: Generated<string>;
+  id: Generated<number>;
+  item_id: string;
+  oleh: Generated<string>;
+  qty: number | null;
+}
+
+export interface BountyItems {
+  as_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: Generated<string>;
+  deleted_at: Timestamp | null;
+  deleted_by: string | null;
+  id: Generated<string>;
+  jenis: string;
+  keterangan: Generated<string>;
+  qty: number;
+  qty_selesai: Generated<number>;
+  selesai_at: Timestamp | null;
+  tanggal: Generated<string>;
+  tujuan_id: string | null;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface ClassificationLogs {
@@ -212,10 +253,14 @@ export interface UserSessions {
 }
 
 export interface DB {
+  app_settings: AppSettings;
   app_users: AppUsers;
   asset_notes: AssetNotes;
   assets_clean: AssetsClean;
   assets_raw: AssetsRaw;
+  bounty_as: BountyAs;
+  bounty_events: BountyEvents;
+  bounty_items: BountyItems;
   classification_logs: ClassificationLogs;
   dat_closing: DatClosing;
   keyword_rules: KeywordRules;

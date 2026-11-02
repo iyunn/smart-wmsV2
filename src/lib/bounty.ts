@@ -68,27 +68,28 @@ export function umurHari(tanggal: string, today = todayWib()): number {
 }
 
 /**
- * Teks tagihan WhatsApp RINGKAS untuk utang yang BELUM lunas: 1 baris per barang, per AS urut bounty
- * terbesar. Keterangan & nama toko tidak ditulis (lihat Export Excel untuk detail). Kosong → "".
- *   *Bounty belum kembali* — 2 Nov 2026
- *   *RDW* Rp20.000
- *   • Monitor ×2 dari 3 · 21 hari
+ * Teks tagihan WhatsApp DETAIL untuk utang yang BELUM lunas, per AS (urut bounty terbesar) — pas untuk
+ * chat pribadi ke satu AS (pilih AS di list Wanted dulu). Untuk banyak AS sekaligus pakai Export Excel.
+ * Format WhatsApp: *tebal*, _miring_. Kosong → "".
  */
 export function buildWaMessage(items: WaItem[], today = todayWib()): string {
   const groups = groupOpenByAs(items);
   if (groups.length === 0) return "";
-  const lines: string[] = [`*Bounty belum kembali* — ${tglIndo(today)}`];
+  const lines: string[] = ["*BOUNTY HUNTER — Barang belum kembali*", `_Per ${tglIndo(today)}_`, ""];
   for (const g of groups) {
-    lines.push(`*${g.as}* ${formatRupiah(g.bounty)}`);
-    for (const it of g.list) {
+    lines.push(`*AS ${g.as}* — ${g.sisa} barang · bounty *${formatRupiah(g.bounty)}*`);
+    g.list.forEach((it, i) => {
       const s = sisaBarang(it);
-      const qty = it.qty_selesai > 0 ? `×${s} dari ${it.qty}` : `×${s}`;
+      const qty = it.qty_selesai > 0 ? `${s} dari ${it.qty} (${it.qty_selesai} sudah kembali)` : `${s}`;
+      const toko = it.tujuan ? ` · ${it.tujuan.kode} ${it.tujuan.nama}`.trimEnd() : "";
       const d = umurHari(it.tanggal, today);
-      lines.push(`• ${it.jenis} ${qty}${it.tujuan ? ` · ${it.tujuan.kode}` : ""} · ${d === 0 ? "hari ini" : `${d} hari`}`);
-    }
+      lines.push(`${i + 1}. ${it.jenis} × ${qty}${toko}`);
+      lines.push(`    sejak ${tglIndo(it.tanggal)} (${d === 0 ? "hari ini" : `${d} hari`})${it.keterangan ? ` — ${it.keterangan}` : ""}`);
+    });
+    lines.push("");
   }
-  const total = groups.reduce((n, g) => n + g.bounty, 0);
-  lines.push("", `${groups.length > 1 ? `Total ${formatRupiah(total)} — m` : "M"}ohon segera dikembalikan 🙏`);
+  if (groups.length > 1) lines.push(`*Total bounty: ${formatRupiah(groups.reduce((n, g) => n + g.bounty, 0))}*`, "");
+  lines.push("Mohon segera dikembalikan ke GA CGA ya 🙏");
   return lines.join("\n");
 }
 

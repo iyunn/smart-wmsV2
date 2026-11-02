@@ -4126,3 +4126,10 @@ Fillian: kartu Wanted dihapus (AS ±70); daftar dinaikkan, list Wanted di sampin
 [VERIFIKASI] Playwright (70 AS / 175 catatan uji, dihapus setelahnya): kartu lama hilang, list 70 AS,
 lebar 857 : 286 px (75 % / 25 %) sejajar, urut bounty, klik #1 → filter + "Tagih via WA (BHB)", cari "bh" → 1 AS
 peringkat 1, lebar 1024 px tanpa scroll samping; 0 error. `tsc` 0 error; Vitest 58/58.
+
+### 2 Nov 2026 — Bounty: pesan WA kembali detail
+Fillian: setelah ada Excel, pesan WA dikembalikan ke format detail (lebih bagus untuk chat pribadi ke AS).
+- `buildWaMessage` = format detail awal 9i (judul, per AS + jumlah barang & bounty, nomor, sisa "2 dari 3
+  (1 sudah kembali)", kode+nama toko, sejak + umur, keterangan, total bila > 1 AS), memakai `groupOpenByAs` /
+  `umurHari` yang juga dipakai Excel. Petunjuk modal: pilih AS di list Wanted untuk chat pribadi.
+[VERIFIKASI] Vitest 58/58 (pesan detail persis; 1 AS tanpa total). `tsc` 0 error.

@@ -324,6 +324,8 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
   (`• Monitor ×2 dari 3 · T10 · 21 hari`, tanpa keterangan/nama toko) + **Export Excel** (tombol "Excel" di
   toolbar & "Unduh Excel" di modal; sheet **Per AS** ringkas + **Detail**, format Rupiah, judul digabung) untuk
   di-copy ke WA sebagai gambar (`src/lib/bountyExport.ts`)
+- ✅ dideploy `057c6ab`. Fillian: pesan WA kembali **detail** (untuk chat pribadi ke 1 AS — pilih AS di list
+  Wanted dulu); ringkasan banyak AS lewat Excel
 - Revisi tampilan (Fillian 2 Nov: AS ±70): **kartu Wanted dihapus**; daftar bounty naik dan di sampingnya
   **list Wanted** (tabel 3/4, list 1/4 pada layar ≥ 1280 px; di layar lebih kecil list di atas tabel): peringkat,
   inisial, jumlah barang & umur, bounty; cari inisial; klik = filter; list bisa di-scroll sendiri & menempel

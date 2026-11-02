@@ -31,18 +31,31 @@ describe("bounty", () => {
       it("ABS", "Scanner", 1, 0, "2026-11-02"),
     ], "2026-11-02");
     expect(msg).toBe([
-      "*Bounty belum kembali* — 2 Nov 2026",
-      "*RDW* Rp20.000",
-      "• Monitor ×2 dari 3 · 21 hari",
-      "*ABS* Rp10.000",
-      "• Scanner ×1 · hari ini",
-      "*JTO* Rp10.000",
-      "• Printer Dot Matrix ×1 · T001 · 7 hari",
+      "*BOUNTY HUNTER — Barang belum kembali*",
+      "_Per 2 Nov 2026_",
       "",
-      "Total Rp40.000 — mohon segera dikembalikan 🙏",
+      "*AS RDW* — 2 barang · bounty *Rp20.000*",
+      "1. Monitor × 2 dari 3 (1 sudah kembali)",
+      "    sejak 12 Okt 2026 (21 hari)",
+      "",
+      "*AS ABS* — 1 barang · bounty *Rp10.000*",
+      "1. Scanner × 1",
+      "    sejak 2 Nov 2026 (hari ini)",
+      "",
+      "*AS JTO* — 1 barang · bounty *Rp10.000*",
+      "1. Printer Dot Matrix × 1 · T001 Toko A",
+      "    sejak 26 Okt 2026 (7 hari) — janji minggu depan",
+      "",
+      "*Total bounty: Rp40.000*",
+      "",
+      "Mohon segera dikembalikan ke GA CGA ya 🙏",
     ].join("\n"));
-    expect(buildWaMessage([it("JTO", "Printer", 1, 0, "2026-11-02")], "2026-11-02"))
-      .toBe("*Bounty belum kembali* — 2 Nov 2026\n*JTO* Rp10.000\n• Printer ×1 · hari ini\n\nMohon segera dikembalikan 🙏");
+    // 1 AS (chat pribadi): tanpa baris total
+    expect(buildWaMessage([it("JTO", "Printer", 1, 0, "2026-11-02")], "2026-11-02")).toBe([
+      "*BOUNTY HUNTER — Barang belum kembali*", "_Per 2 Nov 2026_", "",
+      "*AS JTO* — 1 barang · bounty *Rp10.000*", "1. Printer × 1", "    sejak 2 Nov 2026 (hari ini)", "",
+      "Mohon segera dikembalikan ke GA CGA ya 🙏",
+    ].join("\n"));
     expect(buildWaMessage([it("X", "Y", 1, 1, "2026-11-01")], "2026-11-02")).toBe("");
     expect(waLink("a b&c\n🙏")).toBe("https://wa.me/?text=a%20b%26c%0A%F0%9F%99%8F");
   });

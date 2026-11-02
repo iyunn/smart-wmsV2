@@ -270,7 +270,7 @@ export function DeleteModal({ item, send, onClose }: { item: BountyItem; send: S
 }
 
 // ── Tagih lewat WhatsApp ───────────────────────────────────────────────────
-// Teks RINGKAS (1 baris per barang) dari utang BELUM lunas sesuai filter AS/cari; bisa diedit dulu.
+// Teks DETAIL dari utang BELUM lunas sesuai filter AS/cari (pas untuk chat pribadi ke 1 AS); bisa diedit.
 // "Buka WhatsApp" membuka wa.me (WhatsApp Desktop/Web di PC ini) → pilih kontak atau grup AS.
 // "Unduh Excel" → tabel rapi (sheet Per AS & Detail) untuk di-copy ke WA sebagai gambar.
 export function WaModal({ items, scope, onClose }: { items: BountyItem[]; scope: string; onClose: () => void }) {
@@ -291,9 +291,10 @@ export function WaModal({ items, scope, onClose }: { items: BountyItem[]; scope:
           <label htmlFor="wa-text" className={labelCls}>Isi pesan</label>
           <textarea id="wa-text" rows={10} value={text} onChange={(e) => { setText(e.target.value); setNote(""); }}
             className={`${inputCls} font-mono text-[12px] leading-relaxed`} />
-          <p className="mt-1 text-[12px] text-dim">*teks* = tebal di WhatsApp. {text.split("\n").length} baris · {text.length.toLocaleString("id-ID")} karakter.</p>
+          <p className="mt-1 text-[12px] text-dim">*teks* = tebal, _teks_ = miring di WhatsApp. {text.split("\n").length} baris · {text.length.toLocaleString("id-ID")} karakter.</p>
           <p className="mt-2 rounded-lg bg-panel px-3 py-2 text-[12px] text-muted">
-            Mau kirim sebagai <b className="text-body">gambar</b>? <b className="text-body">Unduh Excel</b> → buka sheet “Per AS” atau “Detail”
+            Chat pribadi ke satu AS? Pilih AS-nya dulu di list <b className="text-body">Wanted</b>. Banyak AS sekaligus /
+            sebagai <b className="text-body">gambar</b>? <b className="text-body">Unduh Excel</b> → buka sheet “Per AS” atau “Detail”
             → blok tabelnya → Ctrl+C → tempel di chat WhatsApp. Bila yang tertempel teks, pakai Windows+Shift+S (tangkap layar) lalu tempel.
           </p>
           {note && <p role="status" className="mt-2 text-[12px] font-medium text-success-700">{note}</p>}

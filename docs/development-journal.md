@@ -4101,3 +4101,28 @@ enkode link). Playwright (sandbox; data uji dihapus/dikembalikan): pesan semua A
 decode = teks, `target=_blank`, teks diedit ikut ke link, kartu JTO → pesan hanya JTO tanpa total;
 Pendingan 4 kota (data uji) → semua tertutup + "Demak 2 tinggi", klik Kendal → terbuka, reload → tetap
 terbuka, Buka semua / Tutup semua; 0 error. `tsc` 0 error.
+
+### 2 Nov 2026 — Tahap 9i (revisi): pesan WA ringkas + Export Excel bounty
+Fillian: pesan WA terlalu panjang; minta disingkat atau Excel untuk di-copy ke WA sebagai gambar → keduanya.
+- `buildWaMessage` ringkas: judul + per AS `*JTO* Rp30.000` + 1 baris per barang (sisa, "dari N" bila sebagian,
+  kode toko, umur). Contoh 3 AS / 4 barang: 10 baris (sebelumnya 18). `groupOpenByAs`, `umurHari`,
+  `tglIndo` dipakai bersama pesan & Excel.
+- `src/lib/bountyExport.ts`: `buildBountySheets` (murni, diuji) + `exportBountyExcel` — sheet "Per AS"
+  (AS, barang belum kembali, bounty, TOTAL) & "Detail" (No, AS, barang, sisa, dari, toko, sejak, umur, bounty,
+  keterangan + subtotal per AS), lebar kolom, gabung sel judul, format `"Rp"#,##0`. Nama file ikut filter.
+[CATATAN] SheetJS CE tidak menulis warna/tebal — tabel dirapikan dengan lebar kolom & format angka. Petunjuk di
+modal: blok tabel → Ctrl+C → tempel di WhatsApp; bila tertempel teks, Windows+Shift+S. "Salin teks" butuh
+HTTPS untuk clipboard otomatis — di LAN http jatuh ke pesan "blok teks lalu Ctrl+C".
+[VERIFIKASI] Vitest 58/58 (pesan ringkas persis, 1 AS tanpa total; Excel Per AS & Detail persis). Playwright
+(sandbox, data uji dihapus): pesan 10 baris benar; Unduh Excel → 2 sheet sesuai, format Rupiah & merge judul;
+filter JTO → tombol Excel → `Bounty-Belum-Kembali-AS-JTO-….xlsx` hanya JTO; 0 error. `tsc` 0 error.
+
+### 2 Nov 2026 — Bounty Hunter: kartu Wanted → list samping
+Fillian: kartu Wanted dihapus (AS ±70); daftar dinaikkan, list Wanted di sampingnya (tabel 3/4, list 1/4).
+- `/bounty`: grid `xl:grid-cols-[3fr_1fr]`; `<aside aria-label="Wanted">` sticky, cari inisial (`asSearch`,
+  peringkat tetap mengikuti urutan bounty walau disaring), `max-h` + scroll sendiri; < xl: list di atas tabel
+  (`order-first`, tinggi maks 18rem). Toolbar daftar: kolom cari + Tagih via WA + Excel dikelompokkan supaya
+  satu baris di lebar 3/4.
+[VERIFIKASI] Playwright (70 AS / 175 catatan uji, dihapus setelahnya): kartu lama hilang, list 70 AS,
+lebar 857 : 286 px (75 % / 25 %) sejajar, urut bounty, klik #1 → filter + "Tagih via WA (BHB)", cari "bh" → 1 AS
+peringkat 1, lebar 1024 px tanpa scroll samping; 0 error. `tsc` 0 error; Vitest 58/58.

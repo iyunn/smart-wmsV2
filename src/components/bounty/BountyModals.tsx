@@ -8,6 +8,7 @@ import SearchableDropdown from "@/components/sj/SearchableDropdown";
 import type { SJTujuan } from "@/lib/sjTypes";
 import { BOUNTY_PER_BARANG, buildWaMessage, formatRupiah, normalizeInisial, sisaBarang, todayWib, waLink } from "@/lib/bounty";
 import type { BountyItem } from "@/hooks/useBounty";
+import { exportBountyExcel } from "@/lib/bountyExport";
 
 type Send = (method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) => Promise<string | null>;
 
@@ -269,8 +270,9 @@ export function DeleteModal({ item, send, onClose }: { item: BountyItem; send: S
 }
 
 // ── Tagih lewat WhatsApp ───────────────────────────────────────────────────
-// Teks dibuat dari utang yang BELUM lunas sesuai filter AS/cari yang aktif; bisa diedit dulu.
+// Teks RINGKAS (1 baris per barang) dari utang BELUM lunas sesuai filter AS/cari; bisa diedit dulu.
 // "Buka WhatsApp" membuka wa.me (WhatsApp Desktop/Web di PC ini) → pilih kontak atau grup AS.
+// "Unduh Excel" → tabel rapi (sheet Per AS & Detail) untuk di-copy ke WA sebagai gambar.
 export function WaModal({ items, scope, onClose }: { items: BountyItem[]; scope: string; onClose: () => void }) {
   const initial = useMemo(() => buildWaMessage(items), [items]);
   const [text, setText] = useState(initial);
@@ -287,15 +289,23 @@ export function WaModal({ items, scope, onClose }: { items: BountyItem[]; scope:
       {initial ? (
         <>
           <label htmlFor="wa-text" className={labelCls}>Isi pesan</label>
-          <textarea id="wa-text" rows={14} value={text} onChange={(e) => { setText(e.target.value); setNote(""); }}
+          <textarea id="wa-text" rows={10} value={text} onChange={(e) => { setText(e.target.value); setNote(""); }}
             className={`${inputCls} font-mono text-[12px] leading-relaxed`} />
-          <p className="mt-1 text-[12px] text-dim">*teks* = tebal, _teks_ = miring di WhatsApp. {text.length.toLocaleString("id-ID")} karakter.</p>
+          <p className="mt-1 text-[12px] text-dim">*teks* = tebal di WhatsApp. {text.split("\n").length} baris · {text.length.toLocaleString("id-ID")} karakter.</p>
+          <p className="mt-2 rounded-lg bg-panel px-3 py-2 text-[12px] text-muted">
+            Mau kirim sebagai <b className="text-body">gambar</b>? <b className="text-body">Unduh Excel</b> → buka sheet “Per AS” atau “Detail”
+            → blok tabelnya → Ctrl+C → tempel di chat WhatsApp. Bila yang tertempel teks, pakai Windows+Shift+S (tangkap layar) lalu tempel.
+          </p>
           {note && <p role="status" className="mt-2 text-[12px] font-medium text-success-700">{note}</p>}
           <div className="mt-5 flex flex-wrap gap-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-medium text-body hover:text-heading">
               Tutup
             </button>
-            <button type="button" onClick={copy} className="ml-auto rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-semibold text-body hover:text-heading">
+            <button type="button" onClick={() => exportBountyExcel(items, scope, scope)}
+              className="ml-auto rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-semibold text-body hover:text-heading">
+              Unduh Excel
+            </button>
+            <button type="button" onClick={copy} className="rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-semibold text-body hover:text-heading">
               Salin teks
             </button>
             <a href={waLink(text)} target="_blank" rel="noopener noreferrer"

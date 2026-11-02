@@ -320,6 +320,13 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
   toko, sejak kapan + umur, keterangan, total. Teks bisa diedit → **Buka WhatsApp** (`wa.me/?text=`, pilih
   kontak/grup di WhatsApp Desktop/Web) atau **Salin teks**. `buildWaMessage`/`waLink` di `src/lib/bounty.ts`
 - Nomor HP AS tidak disimpan (belum diminta) → kontak dipilih di WhatsApp
+- ✅ dideploy `8a4c0f9`. Revisi (Fillian 2 Nov: pesan terlalu panjang): pesan **ringkas** 1 baris per barang
+  (`• Monitor ×2 dari 3 · T10 · 21 hari`, tanpa keterangan/nama toko) + **Export Excel** (tombol "Excel" di
+  toolbar & "Unduh Excel" di modal; sheet **Per AS** ringkas + **Detail**, format Rupiah, judul digabung) untuk
+  di-copy ke WA sebagai gambar (`src/lib/bountyExport.ts`)
+- Revisi tampilan (Fillian 2 Nov: AS ±70): **kartu Wanted dihapus**; daftar bounty naik dan di sampingnya
+  **list Wanted** (tabel 3/4, list 1/4 pada layar ≥ 1280 px; di layar lebih kecil list di atas tabel): peringkat,
+  inisial, jumlah barang & umur, bounty; cari inisial; klik = filter; list bisa di-scroll sendiri & menempel
 
 ### 9j — Pendingan Alokasi: daftar per kota bisa dibuka/tutup (permintaan Fillian 2 Nov) 🚧
 - Judul kota di daftar kiri `/sj/pendingan` = tombol buka/tutup (ikon panah) + "N toko · M item" + tanda

@@ -14,6 +14,7 @@ import { BountyFormModal, DeleteModal, SettleModal, UndoModal, WaModal } from "@
 import { useBounty, type BountyEvent, type BountyItem } from "@/hooks/useBounty";
 import { useMasterJenis, useMasterTujuan } from "@/hooks/useSJMaster";
 import { BOUNTY_PER_BARANG, formatRupiah, sisaBarang, todayWib } from "@/lib/bounty";
+import { exportBountyExcel } from "@/lib/bountyExport";
 
 type Status = "aktif" | "lunas" | "semua";
 type ModalState =
@@ -54,6 +55,12 @@ export default function BountyPage() {
   const items = useMemo(() => data?.items ?? [], [data]);
   const asList = useMemo(() => (data?.as ?? []).map((a) => a.inisial).sort(), [data]);
   const wanted = useMemo(() => (data?.as ?? []).filter((a) => a.sisa > 0), [data]);
+  const [asSearch, setAsSearch] = useState("");
+  // Peringkat tetap (urut bounty) walau daftar disaring kata cari
+  const wantedShown = useMemo(() => {
+    const q = asSearch.trim().toUpperCase();
+    return wanted.map((a, i) => ({ a, rank: i + 1 })).filter(({ a }) => !q || a.inisial.includes(q) || a.nama.toUpperCase().includes(q));
+  }, [wanted, asSearch]);
 
   const stats = useMemo(() => {
     const aktif = items.filter((it) => sisaBarang(it) > 0);
@@ -129,44 +136,10 @@ export default function BountyPage() {
             ))}
           </div>
 
-          {/* ── Wanted: AS urut bounty terbesar ─────────────────────── */}
-          <section aria-label="Daftar AS">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-[15px] font-bold text-heading">Wanted</h2>
-              {asFilter && (
-                <button onClick={() => setAsFilter(null)} className="text-[12px] font-medium text-accent underline underline-offset-2">
-                  Tampilkan semua AS
-                </button>
-              )}
-            </div>
-            {!loading && wanted.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-line px-5 py-6 text-center text-[13px] text-muted">
-                Tidak ada AS yang punya utang. Aman! 🎉
-              </p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-                {wanted.map((a, i) => {
-                  const active = asFilter === a.inisial;
-                  return (
-                    <button key={a.id} onClick={() => setAsFilter(active ? null : a.inisial)} aria-pressed={active}
-                      aria-label={`${a.inisial}: bounty ${formatRupiah(a.bounty)}, ${a.sisa} barang belum kembali${i === 0 ? " (paling dicari)" : ""}`}
-                      className={`relative rounded-2xl border bg-surface p-4 text-left transition-colors ${active ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-line-strong"}`}>
-                      {i === 0 && <span className="absolute right-3 top-3 rounded-md bg-danger-50 px-2 py-0.5 text-[11px] font-bold text-danger-700">#1 Wanted</span>}
-                      <p className="text-[22px] font-black tracking-wide text-heading">{a.inisial}</p>
-                      {a.nama && <p className="text-[12px] text-muted">{a.nama}</p>}
-                      <p className="mt-2 text-[20px] font-bold tabular-nums text-danger-700">{formatRupiah(a.bounty)}</p>
-                      <p className="text-[12px] text-muted">
-                        {a.sisa} barang · {a.utang_aktif} catatan{a.sejak ? ` · sejak ${labelHari(hariSejak(a.sejak))}` : ""}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
 
-          {/* ── Daftar utang ────────────────────────────────────────── */}
-          <section className="rounded-2xl border border-line bg-surface" aria-label="Daftar bounty">
+          {/* ── Daftar utang (3/4) + Wanted (1/4) ─────────────────────── */}
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+          <section className="min-w-0 rounded-2xl border border-line bg-surface" aria-label="Daftar bounty">
             <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4">
               <div className="flex flex-wrap items-center gap-1 rounded-full border border-line bg-panel p-1" role="tablist" aria-label="Status">
                 {([["aktif", "Belum kembali"], ["lunas", "Lunas"], ["semua", "Semua"]] as const).map(([k, l]) => (
@@ -177,14 +150,22 @@ export default function BountyPage() {
                 ))}
               </div>
               {asFilter && <span className="rounded-full bg-brand-50 px-3 py-1 text-[12px] font-semibold text-brand-700">AS {asFilter}</span>}
+              <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:max-w-[34rem]">
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari AS, barang, toko, keterangan…" aria-label="Cari"
-                className="ml-auto w-full max-w-xs rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-body placeholder:text-dim" />
+                className="min-w-0 flex-1 basis-40 rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-body placeholder:text-dim" />
               <button onClick={() => setModal({ kind: "wa" })} disabled={loading}
                 title={`Buat pesan tagihan WhatsApp — ${waScope} (${waItems.length} catatan belum lunas)`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-success-50 px-3 py-2 text-[13px] font-semibold text-success-700 hover:brightness-95 disabled:opacity-50">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z" /></svg>
                 Tagih via WA{asFilter ? ` (${asFilter})` : ""}
               </button>
+              <button onClick={() => exportBountyExcel(waItems, waScope, waScope)} disabled={loading || waItems.length === 0}
+                title={`Excel utang belum lunas — ${waScope} (untuk di-copy ke WA sebagai gambar)`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-[13px] font-semibold text-muted hover:text-heading disabled:opacity-50">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+                Excel
+              </button>
+              </div>
             </div>
 
             {loading ? (
@@ -280,6 +261,47 @@ export default function BountyPage() {
               </ul>
             )}
           </section>
+
+          {/* Wanted: AS urut bounty terbesar (list ringkas — AS bisa ±70). Klik = filter daftar. */}
+          <aside className="order-first rounded-2xl border border-line bg-surface xl:order-none xl:sticky xl:top-0" aria-label="Wanted">
+            <div className="border-b border-line px-4 py-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="text-[15px] font-bold text-heading">Wanted <span className="text-[12px] font-medium text-muted">({wanted.length} AS)</span></h2>
+                {asFilter && (
+                  <button onClick={() => setAsFilter(null)} className="text-[12px] font-medium text-accent underline underline-offset-2">Semua AS</button>
+                )}
+              </div>
+              <input value={asSearch} onChange={(e) => setAsSearch(e.target.value)} placeholder="Cari inisial AS…" aria-label="Cari AS"
+                className="mt-2 w-full rounded-lg border border-line-strong bg-field px-3 py-1.5 text-[13px] text-body placeholder:text-dim" />
+            </div>
+            {!loading && wanted.length === 0 ? (
+              <p className="px-4 py-6 text-center text-[13px] text-muted">Tidak ada AS yang punya utang. 🎉</p>
+            ) : (
+              <ol className="max-h-72 overflow-y-auto py-1 xl:max-h-[calc(100vh-260px)]">
+                {wantedShown.map(({ a, rank }) => {
+                  const active = asFilter === a.inisial;
+                  return (
+                    <li key={a.id}>
+                      <button onClick={() => setAsFilter(active ? null : a.inisial)} aria-pressed={active}
+                        aria-label={`${a.inisial}: bounty ${formatRupiah(a.bounty)}, ${a.sisa} barang belum kembali${rank === 1 ? " (paling dicari)" : ""}`}
+                        className={`flex w-full items-center gap-2.5 px-4 py-2 text-left transition-colors ${active ? "bg-brand-50" : "hover:bg-panel"}`}>
+                        <span className={`w-6 shrink-0 text-right text-[12px] font-bold tabular-nums ${rank <= 3 ? "text-danger-700" : "text-dim"}`}>{rank}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate text-[14px] font-black tracking-wide ${active ? "text-brand-700" : "text-heading"}`}>{a.inisial}</span>
+                          <span className="block truncate text-[11px] text-muted">
+                            {a.sisa} barang{a.sejak ? ` · ${labelHari(hariSejak(a.sejak))}` : ""}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[13px] font-bold tabular-nums text-danger-700">{formatRupiah(a.bounty)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+                {wantedShown.length === 0 && <li className="px-4 py-4 text-center text-[12px] text-muted">AS tidak ditemukan.</li>}
+              </ol>
+            )}
+          </aside>
+          </div>
         </main>
       </div>
 

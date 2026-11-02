@@ -42,43 +42,53 @@ export interface WaItem {
   tujuan: { kode: string; nama: string } | null;
 }
 
-function tglIndo(iso: string): string {
+export function tglIndo(iso: string): string {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+interface WaGroup { as: string; list: WaItem[]; sisa: number; bounty: number }
+
+/** Utang belum lunas dikelompokkan per AS, urut bounty terbesar (dipakai pesan WA & Excel). */
+export function groupOpenByAs(items: WaItem[]): WaGroup[] {
+  const byAs = new Map<string, WaItem[]>();
+  for (const it of items) if (sisaBarang(it) > 0) byAs.set(it.as_inisial, [...(byAs.get(it.as_inisial) ?? []), it]);
+  return [...byAs.entries()]
+    .map(([as, list]) => ({
+      as,
+      list: list.sort((a, b) => a.tanggal.localeCompare(b.tanggal)),
+      sisa: list.reduce((n, it) => n + sisaBarang(it), 0),
+      bounty: nilaiBounty(list),
+    }))
+    .sort((a, b) => b.bounty - a.bounty || a.as.localeCompare(b.as));
+}
+
+/** Umur utang dalam hari (tanggal WIB). */
+export function umurHari(tanggal: string, today = todayWib()): number {
+  return Math.max(0, Math.round((Date.parse(today + "T00:00:00Z") - Date.parse(tanggal + "T00:00:00Z")) / 86_400_000));
+}
+
 /**
- * Teks tagihan WhatsApp untuk utang yang BELUM lunas, dikelompokkan per AS (urut bounty terbesar).
- * Format WhatsApp: *tebal*, _miring_. Item lunas diabaikan. Kosong → "".
+ * Teks tagihan WhatsApp RINGKAS untuk utang yang BELUM lunas: 1 baris per barang, per AS urut bounty
+ * terbesar. Keterangan & nama toko tidak ditulis (lihat Export Excel untuk detail). Kosong → "".
+ *   *Bounty belum kembali* — 2 Nov 2026
+ *   *RDW* Rp20.000
+ *   • Monitor ×2 dari 3 · 21 hari
  */
 export function buildWaMessage(items: WaItem[], today = todayWib()): string {
-  const open = items.filter((it) => sisaBarang(it) > 0);
-  if (open.length === 0) return "";
-  const byAs = new Map<string, WaItem[]>();
-  for (const it of open) byAs.set(it.as_inisial, [...(byAs.get(it.as_inisial) ?? []), it]);
-  const groups = [...byAs.entries()]
-    .map(([as, list]) => ({ as, list: list.sort((a, b) => a.tanggal.localeCompare(b.tanggal)), bounty: nilaiBounty(list) }))
-    .sort((a, b) => b.bounty - a.bounty || a.as.localeCompare(b.as));
-
-  const day = (iso: string) => Math.max(0, Math.round((Date.parse(today + "T00:00:00Z") - Date.parse(iso + "T00:00:00Z")) / 86_400_000));
-  const lines: string[] = [`*BOUNTY HUNTER — Barang belum kembali*`, `_Per ${tglIndo(today)}_`, ""];
+  const groups = groupOpenByAs(items);
+  if (groups.length === 0) return "";
+  const lines: string[] = [`*Bounty belum kembali* — ${tglIndo(today)}`];
   for (const g of groups) {
-    const sisa = g.list.reduce((n, it) => n + sisaBarang(it), 0);
-    lines.push(`*AS ${g.as}* — ${sisa} barang · bounty *${formatRupiah(g.bounty)}*`);
-    g.list.forEach((it, i) => {
+    lines.push(`*${g.as}* ${formatRupiah(g.bounty)}`);
+    for (const it of g.list) {
       const s = sisaBarang(it);
-      const qty = it.qty_selesai > 0 ? `${s} dari ${it.qty} (${it.qty_selesai} sudah kembali)` : `${s}`;
-      const toko = it.tujuan ? ` · ${it.tujuan.kode} ${it.tujuan.nama}`.trimEnd() : "";
-      const d = day(it.tanggal);
-      lines.push(`${i + 1}. ${it.jenis} × ${qty}${toko}`);
-      lines.push(`    sejak ${tglIndo(it.tanggal)} (${d === 0 ? "hari ini" : `${d} hari`})${it.keterangan ? ` — ${it.keterangan}` : ""}`);
-    });
-    lines.push("");
+      const qty = it.qty_selesai > 0 ? `×${s} dari ${it.qty}` : `×${s}`;
+      const d = umurHari(it.tanggal, today);
+      lines.push(`• ${it.jenis} ${qty}${it.tujuan ? ` · ${it.tujuan.kode}` : ""} · ${d === 0 ? "hari ini" : `${d} hari`}`);
+    }
   }
-  if (groups.length > 1) {
-    const total = groups.reduce((n, g) => n + g.bounty, 0);
-    lines.push(`*Total bounty: ${formatRupiah(total)}*`, "");
-  }
-  lines.push("Mohon segera dikembalikan ke GA CGA ya 🙏");
+  const total = groups.reduce((n, g) => n + g.bounty, 0);
+  lines.push("", `${groups.length > 1 ? `Total ${formatRupiah(total)} — m` : "M"}ohon segera dikembalikan 🙏`);
   return lines.join("\n");
 }
 

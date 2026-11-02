@@ -298,7 +298,7 @@ Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek
   (D-37); membukanya = data per user ±4× lebih besar dan warna mudah tidak serasi. Ganti warna dasar sudah
   mengubah turunannya
 
-### 9e — Bounty Hunter: catatan pinjaman/janji AS 🚧
+### 9e — Bounty Hunter: catatan pinjaman/janji AS 🚧 (9e-1 dideploy `85a5d87`)
 Masalah (Fillian 2 Nov): AS (Area Supervisor, inisial mis. "JTO") meminjam barang (mis. printer dot matrix
 untuk toko kelolaannya) dan berjanji mengembalikan barang rusaknya; janji terlupa, atau barang dikembalikan
 ke orang lain. Semua user perlu bisa melihat & memperbarui.
@@ -312,9 +312,13 @@ ke orang lain. Semua user perlu bisa melihat & memperbarui.
 - **9e-1 Database + API** ✅ kode — migrasi `0005_bounty` (D-39), `src/lib/bounty.ts` (aturan + test),
   `src/server/modules/bounty/service.ts`, `GET/POST/PATCH/DELETE /api/bounty` (zod strict, pesan Indonesia).
   Hapus = soft delete + riwayat
-- **9e-2 Halaman** — `/bounty`: kartu AS urut bounty terbesar, daftar utang + ceklist (jumlah yang kembali +
-  catatan), form tambah (AS dropdown + baru, jenis = master jenis SJ, toko = Tujuan SJ), riwayat per item;
-  menu Sidebar
+- **9e-2 Halaman** ✅ kode — `/bounty` + menu Sidebar "Bounty Hunter" (semua user): ringkasan (total bounty,
+  barang belum kembali, AS berutang, utang tertua), kartu **Wanted** per AS urut bounty terbesar (klik = filter),
+  daftar dengan tab Belum kembali / Lunas / Semua + cari, **kotak ceklist** per catatan (kosong / sebagian /
+  lunas) → modal jumlah yang kembali + catatan, Batalkan tanda, Ubah, Riwayat, Hapus (dengan alasan).
+  Form: AS dropdown + ketik inisial baru, jenis = master jenis SJ (boleh ketik), toko = Tujuan SJ (opsional),
+  tanggal (default hari ini WIB), keterangan. Utang ≥ 7 hari ditandai warna peringatan
+  (`src/app/bounty/page.tsx`, `src/components/bounty/BountyModals.tsx`, `src/hooks/useBounty.ts`)
 **Selesai bila:** semua user bisa mencatat, menandai kembali (sebagian/semua), dan melihat total bounty per AS.
 **STOP**
 

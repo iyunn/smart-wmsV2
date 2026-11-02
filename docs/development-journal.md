@@ -4016,3 +4016,18 @@ total JTO 30.000 → selesai 1 dari 2 → 20.000; selesai melebihi sisa → 400;
 bersamaan → 200 + 400, DB qty_selesai tidak melebihi qty**; batal → kembali; ubah qty < sudah kembali → 400,
 = sudah kembali → lunas (`selesai_at` terisi); pindah AS; hapus → hilang dari daftar, item terhapus → 404;
 tanpa login → 401; riwayat lengkap dengan nama user. Migrasi down/up OK. `tsc` 0 error. Data uji dihapus.
+✅ 9e-1 dideploy (`85a5d87`, migrasi 0005 di produksi).
+
+### 2 Nov 2026 — Tahap 9e-2: halaman Bounty Hunter
+- `src/app/bounty/page.tsx`, `src/components/bounty/BountyModals.tsx` (catat/ubah, tandai kembali, batalkan,
+  hapus), `src/hooks/useBounty.ts`; Sidebar: menu "Bounty Hunter" (ikon target) + `getActiveId`.
+- Ceklist = `role="checkbox"` dengan `aria-checked` true / "mixed" (sebagian) / false; klik membuka modal
+  jumlah (default = sisa) + catatan. Form mengirim hanya field yang berubah saat Ubah.
+[VERIFIKASI] Playwright (sandbox, data contoh 3 catatan): menu Sidebar → halaman; catat baru dengan AS baru
+"jto" diketik → "AS baru JTO akan ditambahkan", total Rp60.000 → Rp80.000; tandai 1 dari 2 + "dikembalikan ke
+Budi" → ceklist "mixed", Rp70.000; riwayat menampilkan 2 baris dengan nama & catatan; klik kartu RDW → 2 baris;
+tandai lunas → hilang dari Belum kembali, muncul di Lunas, JTO keluar dari Wanted; ubah jumlah → × 4; hapus UPS
+dengan alasan → hilang, total diperbarui; cari "kasir" → 1; tema gelap OK; lebar 1024 px tanpa scroll samping;
+tanpa login → 307 ke /login; 0 error console. `tsc` 0 error; Vitest 48/48. Data uji dihapus.
+[CATATAN] Di lebar HP (390 px) seluruh aplikasi masih sempit karena Sidebar tetap 230 px — berlaku untuk
+semua halaman (bukan khusus Bounty); kandidat Tahap 8.

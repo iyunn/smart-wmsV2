@@ -10,6 +10,7 @@ import SummaryCard from "@/components/SummaryCard";
 import SJPreviewModal from "@/components/sj/SJPreviewModal";
 import { useSJList, useSJDetail, type SJListItem } from "@/hooks/useSJList";
 import type { SJDataForPDF } from "@/components/sj/SuratJalanPDF";
+import { sjCreatorName } from "@/lib/sjCreator";
 
 type SearchField = "all" | "sn" | "tujuan" | "jenis";
 type StatusFilter = "all" | "draft" | "submitted" | "completed";
@@ -278,7 +279,7 @@ const PreviewWrapper = memo(({ sjId, title, onClose }: PreviewWrapperProps) => {
     pembawa:     sj.pembawa ?? "",
     penerima:    sj.penerima ?? "",
     approved_by: sj.approved_by ?? "SPV/Manager",
-    created_by:  "Admin GA",
+    created_by:  sjCreatorName(sj.created_by),
     items: (sj.items ?? []).map((it: any, idx: number) => ({
       urutan:        idx + 1,
       jenis:         it.jenis ?? "",

@@ -25,6 +25,8 @@ import { useMasterJenis, useMasterMerk, useMasterTujuan } from "@/hooks/useSJMas
 import { useSJDetail } from "@/hooks/useSJList";
 import { createEmptyItem, type SJItem } from "@/lib/sjTypes";
 import type { SJDataForPDF } from "@/components/sj/SuratJalanPDF";
+import { useSession } from "@/components/SessionContext";
+import { sjCreatorName } from "@/lib/sjCreator";
 
 function TerimaBarangContent() {
   const searchParams = useSearchParams();
@@ -84,6 +86,8 @@ function TerimaBarangContent() {
   // Penerima = Admin GA (CGA menerima barang dari toko)
   const penerimaDisplay = "Admin GA";
 
+  const { profile } = useSession();
+
   const handleSubmit = useCallback(async () => {
     setError("");
 
@@ -133,7 +137,7 @@ function TerimaBarangContent() {
         pembawa:     pengirim,
         penerima:    penerimaDisplay,
         approved_by: "SPV/Manager",
-        created_by:  "Admin GA",
+        created_by:  sjCreatorName(isEditMode ? existingSJ?.created_by : profile?.username),
         items: validItems.map((it, idx) => ({
           urutan:        idx + 1,
           jenis:         it.jenis,
@@ -156,7 +160,7 @@ function TerimaBarangContent() {
     } finally {
       setSubmitting(false);
     }
-  }, [tanggal, asalId, pengirim, penerimaDisplay, items, selectedAsal, isEditMode, editId, existingSJ]);
+  }, [tanggal, asalId, pengirim, penerimaDisplay, items, selectedAsal, isEditMode, editId, existingSJ, profile]);
 
   const handleClosePreview = useCallback(() => {
     setPreviewData(null);

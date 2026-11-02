@@ -11,6 +11,8 @@ import { useMasterJenis, useMasterMerk, useMasterTujuan, useSJTemplates } from "
 import { useSJDetail } from "@/hooks/useSJList";
 import { createEmptyItem, fromTemplateItem, type SJItem, type SJItemTemplate } from "@/lib/sjTypes";
 import type { SJDataForPDF } from "@/components/sj/SuratJalanPDF";
+import { useSession } from "@/components/SessionContext";
+import { sjCreatorName } from "@/lib/sjCreator";
 
 function TemplatePicker({
   templates,
@@ -137,6 +139,8 @@ function BuatSJPageContent() {
   const selectedTujuan = tujuanList.find(t => t.id === tujuanId);
   const penerimaDisplay = selectedTujuan ? `${selectedTujuan.kode} — ${selectedTujuan.nama}` : "";
 
+  const { profile } = useSession();
+
   const handleSubmit = useCallback(async (status: "draft" | "submitted") => {
     setError("");
 
@@ -185,7 +189,8 @@ function BuatSJPageContent() {
         pembawa,
         penerima:    penerimaDisplay,
         approved_by: "SPV/Manager",
-        created_by:  "Admin GA",
+        // Baru: akun yang sedang login (server menyimpan nama yang sama). Edit: pembuat aslinya.
+        created_by:  sjCreatorName(isEditMode ? existingSJ?.created_by : profile?.username),
         items: validItems.map((it, idx) => ({
           urutan:        idx + 1,
           jenis:         it.jenis,
@@ -207,7 +212,7 @@ function BuatSJPageContent() {
     } finally {
       setSubmitting(false);
     }
-  }, [tanggal, tujuanId, pembawa, penerimaDisplay, items, isEditMode, editId, existingSJ, selectedTujuan]);
+  }, [tanggal, tujuanId, pembawa, penerimaDisplay, items, isEditMode, editId, existingSJ, selectedTujuan, profile]);
 
   // Handler saat user tutup modal — redirect/reset
   const handleClosePreview = useCallback(() => {

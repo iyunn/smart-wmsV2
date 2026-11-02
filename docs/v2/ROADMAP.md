@@ -260,6 +260,16 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 **Selesai bila:** warna tersimpan & ikut antar-perangkat, tanpa kedipan saat halaman dibuka.
 **STOP**
 
+### 9c — Surat Jalan: nama pembuat & jarak kolom (permintaan Fillian 2 Nov) 🚧
+- Kolom tanda tangan **"Dibuat"** di PDF = username akun yang membuat SJ (dulu selalu "Admin GA").
+  Disimpan **server** di `surat_jalan.created_by` dari sesi (`POST /api/sj`, `POST /api/sj/import-wt`) —
+  nilai dari browser diabaikan; edit SJ tidak mengubah pembuat. Cetak ulang dari Daftar SJ memakai
+  pembuat tersimpan; SJ lama (pembuat tidak tercatat: "Admin User"/"Admin GA"/kosong) tetap "Admin GA"
+  (`src/lib/sjCreator.ts`)
+- PDF: kolom Qty rata tengah (7%) + Satuan diberi jarak kiri (9%), Keterangan 25% → 23%
+**Selesai bila:** SJ baru tercetak dengan nama pembuat; Qty & Satuan tidak menempel.
+**STOP**
+
 ### 9b — Pemilih warna lanjutan (rencana)
 Roda warna, preset tema, ekspor/impor tema, edit warna turunan satu per satu.
 

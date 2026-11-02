@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         pembawa: b.pembawa,
         no_sj_wt: b.no_sj_wt,
         items: b.items,
-      }),
+      }, user.username),
     );
   } catch (err) {
     return serverError("sj/import-wt", err);

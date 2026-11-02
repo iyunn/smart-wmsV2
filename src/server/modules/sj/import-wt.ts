@@ -18,7 +18,8 @@ export interface ImportWTInput {
   }[];
 }
 
-export async function importWT(b: ImportWTInput) {
+/** `createdBy` = username akun yang mengimpor (dari sesi) → kolom "Dibuat" di PDF. */
+export async function importWT(b: ImportWTInput, createdBy: string) {
   return db.transaction().execute(async (trx) => {
     // Tujuan dicocokkan tanpa beda huruf besar/kecil (V1: ilike tanpa wildcard).
     const existing = await trx
@@ -46,7 +47,7 @@ export async function importWT(b: ImportWTInput) {
         pembawa: b.pembawa || "",
         penerima: `${b.tujuan_kode} — ${b.tujuan_nama}`,
         approved_by: "SPV/Manager",
-        created_by: "Admin GA",
+        created_by: createdBy,
         status: "submitted",
       })
       .returning(["id", "no_sj"])

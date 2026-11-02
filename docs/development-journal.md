@@ -3933,3 +3933,19 @@ Solusi: `draft` & `loadedFrom` diinisialisasi dari `custom`; efek pratinjau ulan
 [VERIFIKASI] Playwright (sandbox, `next dev`): kode lama → `--bg` hilang di langkah 2 & 4 (bug tereproduksi);
 kode baru → `--bg` tetap `#203040` di semua langkah, isian editor = tersimpan, pratinjau tanpa simpan
 `#112233` lalu keluar → kembali `#203040`, tab terang/gelap tetap memasang draft; 0 page error. `tsc` 0 error.
+
+### 2 Nov 2026 — Tahap 9c: Surat Jalan — nama pembuat & jarak Qty/Satuan
+Permintaan Fillian: "Dibuat" di PDF SJ = nama user yang login (bukan "Admin GA"); Qty & Satuan terlalu dekat.
+- Temuan: `created_by` tidak pernah disimpan dari form (server mengabaikannya → default kolom "Admin User");
+  import WT menyimpan "Admin GA"; ketiga halaman (buat, masuk, daftar) menulis "Admin GA" langsung ke PDF.
+- `createSJ(..., createdBy)` & `importWT(..., createdBy)` ← `user.username` dari `requireUser()`;
+  `listSJ` ikut mengirim `created_by`. Halaman buat/masuk: SJ baru → `profile.username`, edit → pembuat asli;
+  daftar SJ → pembuat tersimpan. `src/lib/sjCreator.ts`: nilai lama → "Admin GA".
+- `SuratJalanPDF.tsx`: Qty `right` 6% → `center` 7%, Satuan 8% → 9% + `paddingLeft: 6`, Keterangan 25% → 23%.
+
+[KEPUTUSAN] "Dibuat" = **pembuat SJ**, bukan orang yang mencetak ulang — dokumen yang sama selalu
+tercetak sama. SJ lama tidak punya data pembuat → tetap "Admin GA" (tidak menebak).
+[VERIFIKASI] `tsc` 0 error; Vitest 23/23 (2 test baru `sjCreator`). API (sandbox, `next dev`, user `aditya`):
+POST /api/sj dengan `created_by: "PALSU"` di body → DB `aditya`; GET /api/sj → `created_by = aditya`;
+import-wt → `aditya`; data uji dihapus. PDF dirender sebelum/sesudah (`renderToFile` → PNG): "12Unit" →
+"12   Unit", nama pembuat tercetak.

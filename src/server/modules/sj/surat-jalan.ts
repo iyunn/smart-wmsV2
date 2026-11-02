@@ -41,7 +41,7 @@ export async function listSJ() {
     .leftJoin("sj_tujuan as t", "t.id", "s.tujuan_id")
     .select([
       "s.id", "s.no_sj", "s.tanggal", "s.pembawa", "s.penerima", "s.status", "s.approved_by", "s.is_archived",
-      "s.jenis", "s.created_at", "s.updated_at",
+      "s.jenis", "s.created_by", "s.created_at", "s.updated_at",
       sql<{ id: string; kode: string; nama: string } | null>`
         case when t.id is null then null else json_build_object('id', t.id, 'kode', t.kode, 'nama', t.nama) end`.as("tujuan"),
       sql<number>`(select count(*)::int from surat_jalan_items i where i.sj_id = s.id)`.as("items_count"),
@@ -105,7 +105,8 @@ export interface SJHeaderInput {
   tanggal: string; tujuan_id: string; pembawa?: string; penerima?: string; approved_by?: string; status?: string;
 }
 
-export async function createSJ(h: SJHeaderInput & { jenis?: string }, items: SJItemInput[]) {
+/** `createdBy` = username akun yang membuat (dari sesi, bukan dari body request) → kolom "Dibuat" di PDF. */
+export async function createSJ(h: SJHeaderInput & { jenis?: string }, items: SJItemInput[], createdBy: string) {
   return db.transaction().execute(async (trx) => {
     const no_sj = await nextNoSJ(trx, h.tanggal);
     const jenis = h.jenis === "masuk" ? "masuk" : "keluar";
@@ -120,6 +121,7 @@ export async function createSJ(h: SJHeaderInput & { jenis?: string }, items: SJI
         approved_by: h.approved_by ?? "",
         status: h.status ?? "draft",
         jenis,
+        created_by: createdBy,
       })
       .returningAll()
       .executeTakeFirstOrThrow();

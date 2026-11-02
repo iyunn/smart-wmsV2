@@ -201,10 +201,11 @@ const styles = StyleSheet.create({
   colJenis: { width: "20%" },
   colMerk:  { width: "13%" },
   colSN:    { width: "13%" },
-  colQty:   { width: "6%",  textAlign: "right" },
-  colSat:   { width: "8%" },
+  // Qty rata tengah + Satuan diberi jarak kiri: dulu Qty rata kanan menempel ke teks Satuan.
+  colQty:   { width: "7%",  textAlign: "center" },
+  colSat:   { width: "9%",  paddingLeft: 6 },
   colTag:   { width: "10%", textAlign: "center" },
-  colKet:   { width: "25%" },
+  colKet:   { width: "23%" },
 
   // Tag mini (Baru / AT)
   tagBox: {

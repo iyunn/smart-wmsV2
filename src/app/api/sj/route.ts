@@ -55,6 +55,7 @@ export async function POST(req: Request) {
         approved_by: b.approved_by, status: b.status, jenis: b.jenis,
       },
       b.items,
+      user.username,
     );
     return Response.json({ sj, no_sj });
   } catch (err) {

@@ -4054,3 +4054,13 @@ ketik `jenis:printer ink jet;merk:canon` → layar 120 sebelum Enter + petunjuk;
 PDF 120 (40/40/40) "Filter: Jenis: printer ink jet · Merk: canon"; + CGA2 → layar 40, PDF hanya CGA2 = 40;
 Excel ikut; dropdown Jenis + "printer" → 500 (lama); lalu `merk:epson;dot` di mode Jenis → 200; 0 error.
 `tsc` 0 error.
+✅ 9f dideploy (`4d19152`) dan dicek Fillian.
+
+### 2 Nov 2026 — Tahap 9g: Rekap Alokasi — filter SJ Keluar / SJ Masuk
+- `src/app/sj/report/page.tsx`: state `jenisSJFilter`; filter dipecah `baseFiltered` (semua filter lain) →
+  `filtered` (+ jenis SJ) supaya angka di tombol Keluar/Masuk mengikuti filter lain; reset, `hasActiveFilter`,
+  nama file & label periode Excel ikut. Data `jenis_sj` sudah ada di `/api/sj/report` — tanpa perubahan API.
+[VERIFIKASI] Playwright (data dev 1.540 SJ keluar / 385 masuk): angka tombol = DB (5.912 / 1.477 item);
+SJ Masuk → 1.477 item / 385 SJ, semua No. SJ hijau; SJ Keluar → 5.912 / 1.540, semua cyan; Excel
+`Report-Alokasi-SJ-Masuk-Semua-Periode-….xlsx` 1.477 baris, kolom Masuk/Keluar hanya "Masuk"; Reset →
+kembali 7.389; 0 error. `tsc` 0 error; Vitest 55/55.

@@ -282,7 +282,7 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 - ✅ 2 Nov: deploy `fcd7a51` (Fillian)
 **STOP**
 
-### 9f — Monitoring: Export PDF ikut filter + flag diketik (permintaan Fillian 2 Nov) 🚧
+### 9f — Monitoring: Export PDF ikut filter + flag diketik (permintaan Fillian 2 Nov) ✅ (`4d19152`)
 - 🐞 Export PDF (Rekap DAT) selalu berisi SEMUA data, tidak ikut filter seperti Export Excel. Fix: filter
   dipindah ke `src/lib/monitoringFilter.ts` dan dipakai **tabel, Export Excel, dan server PDF** (satu fungsi);
   `POST /api/reports/dat-summary { cost_center, quick, tags }` → PDF hanya baris yang cocok, judul halaman
@@ -292,6 +292,13 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
   (flag langsung menyaring saat diketik, Enter menjadikan chip, teks polos tetap pencarian biasa) dan di mode
   kolom (teks polos tetap jadi flag kolom yang dipilih — perilaku lama). Nama kolom tak dikenal = teks biasa
 **Selesai bila:** PDF = data yang tampil di tabel untuk filter yang sama; flag diketik membentuk chip.
+**STOP**
+
+### 9g — Rekap Alokasi: filter SJ Keluar / SJ Masuk (permintaan Fillian 2 Nov) 🚧
+- `/sj/report`: tombol **Jenis SJ: Semua · SJ Keluar · SJ Masuk** (di baris Periode) dengan jumlah item
+  masing-masing sesuai filter lain yang aktif; warna sama dengan No. SJ di tabel (keluar cyan, masuk hijau).
+  Ikut ke tabel, statistik, Export Excel (nama file `Report-Alokasi-SJ-Masuk-…`, label periode) dan Reset
+**Selesai bila:** memilih SJ Masuk/Keluar hanya menampilkan & mengekspor jenis itu.
 **STOP**
 
 ### 9b — Pemilih warna lanjutan ✅ (9b-1 `59bb5e9`, 9b-2 `0d2d7b3`)

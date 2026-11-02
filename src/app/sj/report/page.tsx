@@ -15,6 +15,10 @@ type SearchField  =
 // Filter status mutasi untuk review cepat item yang belum dimutasi
 type MutasiFilter = "all" | "belum_oracle" | "belum_wt" | "belum_keduanya";
 
+// Filter jenis SJ: keluar (SJ Manual) / masuk (Penerimaan Barang)
+type JenisSJFilter = "all" | "keluar" | "masuk";
+const JENIS_SJ_SLUG: Record<JenisSJFilter, string> = { all: "", keluar: "SJ-Keluar", masuk: "SJ-Masuk" };
+
 const PAGE_SIZE = 30;
 
 // ─── StyledSelect (sama pattern existing) ────────────────────────────────
@@ -160,10 +164,12 @@ function buildExcelFilename(
   dateTo: string,
   searchField: SearchField,
   search: string,
+  jenisSJ: JenisSJFilter = "all",
 ): string {
-  const period = periodPreset === "custom" && dateFrom && dateTo
+  const basePeriod = periodPreset === "custom" && dateFrom && dateTo
     ? `${dateFrom}-sd-${dateTo}`
     : PERIOD_SLUG[periodPreset];
+  const period = JENIS_SJ_SLUG[jenisSJ] ? `${JENIS_SJ_SLUG[jenisSJ]}-${basePeriod}` : basePeriod;
 
   const cleanSearch = search.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "");
 
@@ -662,6 +668,7 @@ export default function SJReportPage() {
   const [searchField, setSearchField]   = useState<SearchField>("all");
   const [search, setSearch]             = useState("");
   const [mutasiFilter, setMutasiFilter] = useState<MutasiFilter>("all");
+  const [jenisSJFilter, setJenisSJFilter] = useState<JenisSJFilter>("all");
   // Multi-pilih kategori. Set KOSONG = tanpa filter (semua kategori tampil).
   // Klik tombol = toggle: masuk Set kalau belum ada, keluar kalau sudah ada.
   const [katFilter, setKatFilter]       = useState<Set<string>>(new Set());
@@ -686,7 +693,9 @@ export default function SJReportPage() {
   }, []);
 
   // ── Filter logic ───────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
+  // baseFiltered = semua filter KECUALI jenis SJ (dipakai untuk angka di tombol Keluar/Masuk);
+  // filtered = baseFiltered + filter jenis SJ → tabel, statistik, dan Export Excel.
+  const baseFiltered = useMemo(() => {
     let result = items;
 
     // Date range
@@ -755,6 +764,16 @@ export default function SJReportPage() {
     );
   }, [items, dateFrom, dateTo, search, searchField, mutasiFilter, katFilter, allocOverride]);
 
+  const jenisSJCount = useMemo(() => {
+    const keluar = baseFiltered.filter(it => it.jenis_sj !== "masuk").length;
+    return { all: baseFiltered.length, keluar, masuk: baseFiltered.length - keluar };
+  }, [baseFiltered]);
+
+  const filtered = useMemo(
+    () => jenisSJFilter === "all" ? baseFiltered : baseFiltered.filter(it => (it.jenis_sj === "masuk" ? "masuk" : "keluar") === jenisSJFilter),
+    [baseFiltered, jenisSJFilter],
+  );
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated  = useMemo(
     () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
@@ -767,6 +786,7 @@ export default function SJReportPage() {
     setDateFrom(""); setDateTo("");
     setSearchField("all"); setSearch("");
     setMutasiFilter("all");
+    setJenisSJFilter("all");
     setKatFilter(new Set());
     setPage(1);
   }, []);
@@ -777,10 +797,11 @@ export default function SJReportPage() {
       alert("Tidak ada data untuk diekspor. Sesuaikan filter terlebih dahulu.");
       return;
     }
-    const filename = buildExcelFilename(periodPreset, dateFrom, dateTo, searchField, search);
-    const periodLabel = getPeriodLabel(periodPreset, dateFrom, dateTo);
+    const filename = buildExcelFilename(periodPreset, dateFrom, dateTo, searchField, search, jenisSJFilter);
+    const periodLabel = getPeriodLabel(periodPreset, dateFrom, dateTo)
+      + (jenisSJFilter === "keluar" ? " · SJ Keluar" : jenisSJFilter === "masuk" ? " · SJ Masuk (Penerimaan)" : "");
     exportSJReportToExcel({ items: filtered, filename, periodLabel });
-  }, [filtered, periodPreset, dateFrom, dateTo, searchField, search]);
+  }, [filtered, periodPreset, dateFrom, dateTo, searchField, search, jenisSJFilter]);
 
   // Stats
   const uniqueSJ     = new Set(filtered.map(it => it.sj_id)).size;
@@ -788,7 +809,7 @@ export default function SJReportPage() {
   const totalQty     = filtered.reduce((s, it) => s + (it.qty ?? 0), 0);
   const periodLabel  = getPeriodLabel(periodPreset, dateFrom, dateTo);
 
-  const hasActiveFilter = periodPreset !== "all" || !!search.trim() || mutasiFilter !== "all" || katFilter.size > 0;
+  const hasActiveFilter = periodPreset !== "all" || !!search.trim() || mutasiFilter !== "all" || katFilter.size > 0 || jenisSJFilter !== "all";
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#080e18] text-white">
@@ -841,6 +862,24 @@ export default function SJReportPage() {
                         : "text-slate-500 border-transparent hover:text-slate-300 hover:border-white/10"
                     }`}>
                     {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Jenis SJ — warna sama dengan No. SJ di tabel (keluar cyan, masuk hijau) */}
+              <div className="flex flex-wrap items-center gap-1.5 ml-auto" role="group" aria-label="Jenis SJ">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mr-1">Jenis SJ</span>
+                {([
+                  { v: "all" as const,    label: "Semua",     active: "bg-white/10 text-white border-white/20" },
+                  { v: "keluar" as const, label: "SJ Keluar", active: "bg-cyan-500/15 border-cyan-500/40 text-cyan-300" },
+                  { v: "masuk" as const,  label: "SJ Masuk",  active: "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" },
+                ]).map(j => (
+                  <button key={j.v} onClick={() => { setJenisSJFilter(j.v); setPage(1); }} aria-pressed={jenisSJFilter === j.v}
+                    title={j.v === "masuk" ? "Penerimaan Barang (barang masuk dari toko)" : j.v === "keluar" ? "Surat Jalan Manual (barang keluar ke toko)" : "Semua jenis SJ"}
+                    className={`text-[11px] px-3 py-1.5 rounded-lg font-medium transition-all border ${
+                      jenisSJFilter === j.v ? j.active : "text-slate-500 border-transparent hover:text-slate-300 hover:border-white/10"
+                    }`}>
+                    {j.label} <span className="tabular-nums opacity-60">{jenisSJCount[j.v].toLocaleString()}</span>
                   </button>
                 ))}
               </div>

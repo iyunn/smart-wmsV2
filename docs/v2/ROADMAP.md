@@ -246,7 +246,7 @@ tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 ## Tahap 9 — Improvement V2
 Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 
-### 9a — Warna tampilan custom (PRD D10) 🚧
+### 9a — Warna tampilan custom (PRD D10) ✅
 - Halaman `/pengaturan/tema` (ikon palet di Topbar): 18 warna dasar tema terang & gelap bebas diubah
   (color picker + kode hex), pratinjau langsung di seluruh aplikasi, simpan/batal/semua ke bawaan,
   info keterbacaan (hanya info, tidak membatasi)
@@ -294,14 +294,14 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 **Selesai bila:** PDF = data yang tampil di tabel untuk filter yang sama; flag diketik membentuk chip.
 **STOP**
 
-### 9g — Rekap Alokasi: filter SJ Keluar / SJ Masuk (permintaan Fillian 2 Nov) 🚧
+### 9g — Rekap Alokasi: filter SJ Keluar / SJ Masuk (permintaan Fillian 2 Nov) ✅ (`c2eef97`)
 - `/sj/report`: tombol **Jenis SJ: Semua · SJ Keluar · SJ Masuk** (di baris Periode) dengan jumlah item
   masing-masing sesuai filter lain yang aktif; warna sama dengan No. SJ di tabel (keluar cyan, masuk hijau).
   Ikut ke tabel, statistik, Export Excel (nama file `Report-Alokasi-SJ-Masuk-…`, label periode) dan Reset
 **Selesai bila:** memilih SJ Masuk/Keluar hanya menampilkan & mengekspor jenis itu.
 **STOP**
 
-### 9h — Monitoring DAT: kolom Kode Tujuan (permintaan Fillian 2 Nov) 🚧
+### 9h — Monitoring DAT: kolom Kode Tujuan (permintaan Fillian 2 Nov) ✅ (`dcd4179`)
 - Kode aset diisi di Rekap Alokasi → Monitoring DAT menampilkan **Kode Tujuan** = kode toko dari SJ yang
   memakai kode itu. Keputusan Fillian: 1 kode di beberapa SJ → **SJ terakhir**; transaksi terakhir **SJ masuk
   → kosong** (barang sudah kembali ke CGA). Aturan sama dengan pemulihan tag Allocated saat upload DAT
@@ -313,6 +313,19 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
   Semua Kolom dan Export PDF
 **Selesai bila:** kode aset yang dialokasikan ke SJ keluar menampilkan kode tokonya di Monitoring.
 **STOP**
+
+### 9i — Bounty Hunter: Tagih via WhatsApp (permintaan Fillian 2 Nov) 🚧
+- Tombol **Tagih via WA** di daftar bounty → modal berisi pesan tagihan utang **belum lunas** sesuai filter
+  AS (kartu Wanted) & kata cari: per AS (urut bounty terbesar), barang × sisa (sebagian ditulis "2 dari 3"),
+  toko, sejak kapan + umur, keterangan, total. Teks bisa diedit → **Buka WhatsApp** (`wa.me/?text=`, pilih
+  kontak/grup di WhatsApp Desktop/Web) atau **Salin teks**. `buildWaMessage`/`waLink` di `src/lib/bounty.ts`
+- Nomor HP AS tidak disimpan (belum diminta) → kontak dipilih di WhatsApp
+
+### 9j — Pendingan Alokasi: daftar per kota bisa dibuka/tutup (permintaan Fillian 2 Nov) 🚧
+- Judul kota di daftar kiri `/sj/pendingan` = tombol buka/tutup (ikon panah) + "N toko · M item" + tanda
+  "X tinggi" bila ada toko berurgensi tinggi. Bawaan tertutup; kota yang dibuka diingat di browser
+  (localStorage). "Buka semua / Tutup semua kota". Selalu terbuka bila filter 1 kota / hanya 1 kota, dan kota
+  dari toko yang sedang dipilih. Isi per kecamatan & alur pendingan tidak berubah
 
 ### 9b — Pemilih warna lanjutan ✅ (9b-1 `59bb5e9`, 9b-2 `0d2d7b3`)
 Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek:

@@ -10,7 +10,7 @@
 import { useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
-import { BountyFormModal, DeleteModal, SettleModal, UndoModal } from "@/components/bounty/BountyModals";
+import { BountyFormModal, DeleteModal, SettleModal, UndoModal, WaModal } from "@/components/bounty/BountyModals";
 import { useBounty, type BountyEvent, type BountyItem } from "@/hooks/useBounty";
 import { useMasterJenis, useMasterTujuan } from "@/hooks/useSJMaster";
 import { BOUNTY_PER_BARANG, formatRupiah, sisaBarang, todayWib } from "@/lib/bounty";
@@ -19,6 +19,7 @@ type Status = "aktif" | "lunas" | "semua";
 type ModalState =
   | { kind: "form"; item: BountyItem | null }
   | { kind: "settle" | "undo" | "delete"; item: BountyItem }
+  | { kind: "wa" }
   | null;
 
 const DAY = 86_400_000;
@@ -72,6 +73,17 @@ export default function BountyPage() {
         ? (b.selesai_at ?? "").localeCompare(a.selesai_at ?? "")
         : a.tanggal.localeCompare(b.tanggal) || a.created_at.localeCompare(b.created_at));
   }, [items, status, asFilter, search]);
+
+  // Tagih via WA: utang belum lunas sesuai filter AS & kata cari (tab status diabaikan — selalu belum lunas)
+  const waItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items
+      .filter((it) => sisaBarang(it) > 0)
+      .filter((it) => !asFilter || it.as_inisial === asFilter)
+      .filter((it) => !q || [it.as_inisial, it.jenis, it.keterangan, it.tujuan?.kode, it.tujuan?.nama, it.created_by]
+        .some((v) => v?.toLowerCase().includes(q)));
+  }, [items, asFilter, search]);
+  const waScope = [asFilter ? `AS ${asFilter}` : "semua AS", search.trim() ? `cari "${search.trim()}"` : ""].filter(Boolean).join(", ");
 
   const toggleHistory = (id: string) => setOpenHistory((s) => {
     const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
@@ -167,6 +179,12 @@ export default function BountyPage() {
               {asFilter && <span className="rounded-full bg-brand-50 px-3 py-1 text-[12px] font-semibold text-brand-700">AS {asFilter}</span>}
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari AS, barang, toko, keterangan…" aria-label="Cari"
                 className="ml-auto w-full max-w-xs rounded-lg border border-line-strong bg-field px-3 py-2 text-[13px] text-body placeholder:text-dim" />
+              <button onClick={() => setModal({ kind: "wa" })} disabled={loading}
+                title={`Buat pesan tagihan WhatsApp — ${waScope} (${waItems.length} catatan belum lunas)`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-success-50 px-3 py-2 text-[13px] font-semibold text-success-700 hover:brightness-95 disabled:opacity-50">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z" /></svg>
+                Tagih via WA{asFilter ? ` (${asFilter})` : ""}
+              </button>
             </div>
 
             {loading ? (
@@ -271,6 +289,7 @@ export default function BountyPage() {
       {modal?.kind === "settle" && <SettleModal item={modal.item} send={send} onClose={() => setModal(null)} />}
       {modal?.kind === "undo" && <UndoModal item={modal.item} send={send} onClose={() => setModal(null)} />}
       {modal?.kind === "delete" && <DeleteModal item={modal.item} send={send} onClose={() => setModal(null)} />}
+      {modal?.kind === "wa" && <WaModal items={waItems} scope={waScope} onClose={() => setModal(null)} />}
     </div>
   );
 }

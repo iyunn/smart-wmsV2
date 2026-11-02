@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import SearchableDropdown from "@/components/sj/SearchableDropdown";
@@ -25,6 +25,22 @@ export default function PendinganAlokasiPage() {
   const [selectedTujuanId, setSelectedTujuanId] = useState<string | null>(null);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+
+  // Daftar kiri per kota bisa dibuka/tutup (dropdown). Kota yang dibuka diingat di browser ini saja.
+  const OPEN_KOTA_KEY = "swms-pendingan-kota-open";
+  const [openKota, setOpenKota] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try { setOpenKota(new Set(JSON.parse(localStorage.getItem(OPEN_KOTA_KEY) ?? "[]") as string[])); } catch { /* abaikan */ }
+  }, []);
+  const saveOpenKota = useCallback((next: Set<string>) => {
+    setOpenKota(next);
+    try { localStorage.setItem(OPEN_KOTA_KEY, JSON.stringify([...next])); } catch { /* abaikan */ }
+  }, []);
+  const toggleKota = useCallback((kota: string) => {
+    const next = new Set(openKota);
+    if (next.has(kota)) next.delete(kota); else next.add(kota);
+    saveOpenKota(next);
+  }, [openKota, saveOpenKota]);
 
   // Modal input pendingan (form ala SJ)
   const [modalOpen, setModalOpen] = useState(false);
@@ -108,6 +124,15 @@ export default function PendinganAlokasiPage() {
           .map(([kec, tjs]) => ({ kecamatan: kec, tujuans: tjs.sort((a, b) => a.kode.localeCompare(b.kode)) })),
       }));
   }, [allTujuan, pendingCountByTujuan, kotaFilter]);
+
+  // Filter 1 kota / hanya 1 kota → selalu terbuka. Kota dari tujuan yang sedang dipilih juga terbuka.
+  const autoOpenAll = kotaFilter !== "all" || groupedTujuan.length === 1;
+  const selectedKota = useMemo(() => {
+    const t = allTujuan.find(x => x.id === selectedTujuanId);
+    return t ? (t.kota?.trim() || "Tanpa Kota") : null;
+  }, [allTujuan, selectedTujuanId]);
+  const isKotaOpen = (kota: string) => autoOpenAll || openKota.has(kota) || selectedKota === kota;
+  const allOpen = groupedTujuan.length > 0 && groupedTujuan.every(g => isKotaOpen(g.kota));
 
   const selectedItems = useMemo(
     () => itemsByUrgensi.filter(it => it.tujuan_id === selectedTujuanId),
@@ -270,10 +295,39 @@ export default function PendinganAlokasiPage() {
                 ) : groupedTujuan.length === 0 ? (
                   <p className="text-base2 text-[color:var(--pend-text-dim)] text-center py-8">Belum ada pendingan.</p>
                 ) : (
-                  groupedTujuan.map(({ kota, kecamatans }) => (
+                  <>
+                  {!autoOpenAll && (
+                    <div className="flex justify-end px-1">
+                      <button type="button"
+                        onClick={() => saveOpenKota(allOpen ? new Set() : new Set(groupedTujuan.map(g => g.kota)))}
+                        className="text-tiny font-medium text-[color:var(--pend-text-dim)] hover:text-[color:var(--pend-accent)] underline underline-offset-2">
+                        {allOpen ? "Tutup semua kota" : "Buka semua kota"}
+                      </button>
+                    </div>
+                  )}
+                  {groupedTujuan.map(({ kota, kecamatans }) => {
+                    const open = isKotaOpen(kota);
+                    const tujuanCount = kecamatans.reduce((n, k) => n + k.tujuans.length, 0);
+                    const itemCount = kecamatans.reduce((n, k) => n + k.tujuans.reduce((m, t) => m + t.pendingCount, 0), 0);
+                    const urgent = kecamatans.reduce((n, k) => n + k.tujuans.filter(t => topUrgensiByTujuan.get(t.id) === "tinggi").length, 0);
+                    return (
                     <div key={kota}>
-                      <p className="text-small font-bold uppercase tracking-wider text-[color:var(--pend-accent)] px-2 mb-1.5">{kota}</p>
-                      {kecamatans.map(({ kecamatan, tujuans }) => (
+                      <button type="button" onClick={() => toggleKota(kota)} aria-expanded={open}
+                        disabled={autoOpenAll}
+                        className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 mb-1 text-left hover:bg-[color:var(--pend-border)]/40 disabled:cursor-default transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                          className={`shrink-0 text-[color:var(--pend-accent)] transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>
+                          <polyline points="9 6 15 12 9 18" />
+                        </svg>
+                        <span className="text-small font-bold uppercase tracking-wider text-[color:var(--pend-accent)] truncate">{kota}</span>
+                        {urgent > 0 && (
+                          <span className="shrink-0 rounded px-1.5 py-px text-nano font-bold bg-danger/15 text-danger" title={`${urgent} toko dengan urgensi tinggi`}>
+                            {urgent} tinggi
+                          </span>
+                        )}
+                        <span className="ml-auto shrink-0 text-tiny tabular-nums text-[color:var(--pend-text-dim)]">{tujuanCount} toko · {itemCount} item</span>
+                      </button>
+                      {open && kecamatans.map(({ kecamatan, tujuans }) => (
                         <div key={kecamatan} className="mb-2">
                           <p className="text-tiny font-medium text-[color:var(--pend-text-dim)] px-2 mb-1">{kecamatan}</p>
                           <div className="space-y-1">
@@ -291,7 +345,9 @@ export default function PendinganAlokasiPage() {
                         </div>
                       ))}
                     </div>
-                  ))
+                    );
+                  })}
+                  </>
                 )}
               </div>
             </div>

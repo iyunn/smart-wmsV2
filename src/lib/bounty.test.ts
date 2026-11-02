@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOUNTY_PER_BARANG, INISIAL_PATTERN, formatRupiah, nilaiBounty, normalizeInisial, sisaBarang, todayWib } from "./bounty";
+import { BOUNTY_PER_BARANG, INISIAL_PATTERN, buildWaMessage, formatRupiah, nilaiBounty, normalizeInisial, sisaBarang, todayWib, waLink } from "./bounty";
 
 describe("bounty", () => {
   it("inisial dirapikan jadi huruf besar", () => {
@@ -19,5 +19,38 @@ describe("bounty", () => {
     // 2 Nov 2026 20:30 UTC = 3 Nov 2026 03:30 WIB
     expect(todayWib(new Date("2026-11-02T20:30:00Z"))).toBe("2026-11-03");
     expect(todayWib(new Date("2026-11-02T10:00:00Z"))).toBe("2026-11-02");
+  });
+
+  it("pesan WA: hanya belum lunas, per AS urut bounty terbesar, sebagian ditulis", () => {
+    const it = (as: string, jenis: string, qty: number, qty_selesai: number, tanggal: string, extra = {}) =>
+      ({ as_inisial: as, jenis, qty, qty_selesai, tanggal, keterangan: "", tujuan: null, ...extra });
+    const msg = buildWaMessage([
+      it("JTO", "Printer Dot Matrix", 1, 0, "2026-10-26", { keterangan: "janji minggu depan", tujuan: { kode: "T001", nama: "Toko A" } }),
+      it("RDW", "Monitor", 3, 1, "2026-10-12"),
+      it("RDW", "UPS", 1, 1, "2026-10-20"),          // lunas → tidak ikut
+      it("ABS", "Scanner", 1, 0, "2026-11-02"),
+    ], "2026-11-02");
+    expect(msg).toBe([
+      "*BOUNTY HUNTER — Barang belum kembali*",
+      "_Per 2 Nov 2026_",
+      "",
+      "*AS RDW* — 2 barang · bounty *Rp20.000*",
+      "1. Monitor × 2 dari 3 (1 sudah kembali)",
+      "    sejak 12 Okt 2026 (21 hari)",
+      "",
+      "*AS ABS* — 1 barang · bounty *Rp10.000*",
+      "1. Scanner × 1",
+      "    sejak 2 Nov 2026 (hari ini)",
+      "",
+      "*AS JTO* — 1 barang · bounty *Rp10.000*",
+      "1. Printer Dot Matrix × 1 · T001 Toko A",
+      "    sejak 26 Okt 2026 (7 hari) — janji minggu depan",
+      "",
+      "*Total bounty: Rp40.000*",
+      "",
+      "Mohon segera dikembalikan ke GA CGA ya 🙏",
+    ].join("\n"));
+    expect(buildWaMessage([it("X", "Y", 1, 1, "2026-11-01")], "2026-11-02")).toBe("");
+    expect(waLink("a b&c\n🙏")).toBe("https://wa.me/?text=a%20b%26c%0A%F0%9F%99%8F");
   });
 });

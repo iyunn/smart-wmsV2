@@ -6,7 +6,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import SearchableDropdown from "@/components/sj/SearchableDropdown";
 import type { SJTujuan } from "@/lib/sjTypes";
-import { BOUNTY_PER_BARANG, formatRupiah, normalizeInisial, sisaBarang, todayWib } from "@/lib/bounty";
+import { BOUNTY_PER_BARANG, buildWaMessage, formatRupiah, normalizeInisial, sisaBarang, todayWib, waLink } from "@/lib/bounty";
 import type { BountyItem } from "@/hooks/useBounty";
 
 type Send = (method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) => Promise<string | null>;
@@ -264,6 +264,55 @@ export function DeleteModal({ item, send, onClose }: { item: BountyItem; send: S
         <input id="del-note" maxLength={500} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="mis. dobel input" className={inputCls} />
         <Actions onClose={onClose} busy={busy} submitLabel="Hapus" danger />
       </form>
+    </Shell>
+  );
+}
+
+// ── Tagih lewat WhatsApp ───────────────────────────────────────────────────
+// Teks dibuat dari utang yang BELUM lunas sesuai filter AS/cari yang aktif; bisa diedit dulu.
+// "Buka WhatsApp" membuka wa.me (WhatsApp Desktop/Web di PC ini) → pilih kontak atau grup AS.
+export function WaModal({ items, scope, onClose }: { items: BountyItem[]; scope: string; onClose: () => void }) {
+  const initial = useMemo(() => buildWaMessage(items), [items]);
+  const [text, setText] = useState(initial);
+  const [note, setNote] = useState("");
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setNote("Teks disalin — tempel di chat WhatsApp."); }
+    catch { setNote("Browser menolak menyalin otomatis — blok teks lalu Ctrl+C."); }
+  };
+
+  return (
+    <Shell title="Tagih via WhatsApp" onClose={onClose} width="max-w-xl"
+      subtitle={<>Utang belum lunas — {scope}. Teks boleh diubah sebelum dikirim.</>}>
+      {initial ? (
+        <>
+          <label htmlFor="wa-text" className={labelCls}>Isi pesan</label>
+          <textarea id="wa-text" rows={14} value={text} onChange={(e) => { setText(e.target.value); setNote(""); }}
+            className={`${inputCls} font-mono text-[12px] leading-relaxed`} />
+          <p className="mt-1 text-[12px] text-dim">*teks* = tebal, _teks_ = miring di WhatsApp. {text.length.toLocaleString("id-ID")} karakter.</p>
+          {note && <p role="status" className="mt-2 text-[12px] font-medium text-success-700">{note}</p>}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-medium text-body hover:text-heading">
+              Tutup
+            </button>
+            <button type="button" onClick={copy} className="ml-auto rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-semibold text-body hover:text-heading">
+              Salin teks
+            </button>
+            <a href={waLink(text)} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-success-700 px-4 py-2.5 text-[13px] font-semibold text-white">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4a.5.5 0 0 0 0-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z" /></svg>
+              Buka WhatsApp
+            </a>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-[13px] text-body">Tidak ada utang yang belum lunas untuk {scope}. 🎉</p>
+          <div className="mt-5 flex justify-end">
+            <button type="button" onClick={onClose} className="rounded-xl border border-line-strong px-4 py-2.5 text-[13px] font-medium text-body hover:text-heading">Tutup</button>
+          </div>
+        </>
+      )}
     </Shell>
   );
 }

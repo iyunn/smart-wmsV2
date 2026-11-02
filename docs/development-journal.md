@@ -4082,3 +4082,22 @@ SJ keluar lama (T845) lalu SJ keluar baru (T369) → T369; keluar lalu masuk →
 PDF filter `kode_tujuan: T369` → 1 item, "Filter: Kode Tujuan: T369". UI: sel + tooltip (nama toko, No. SJ,
 tanggal), `tujuan:T369` → 1 aset, sort, Excel kolom urut setelah Status Alokasi; hapus kode di SJ terbaru →
 kembali ke T845; semua kode dihapus → 0 terisi, tag bersih. Query `distinct on` 1,6 ms (7.389 item). 0 error.
+✅ 9g (`c2eef97`) & 9h (`dcd4179`) dideploy bersama.
+
+### 2 Nov 2026 — Tahap 9i: Bounty Hunter — Tagih via WhatsApp
+- `src/lib/bounty.ts`: `buildWaMessage(items, today)` (hanya sisa > 0, kelompok per AS urut bounty, format
+  *tebal*/_miring_ WhatsApp, total bila > 1 AS) + `waLink` (`https://wa.me/?text=` dienkode penuh).
+- `BountyModals.tsx`: `WaModal` (pratinjau dapat diedit, Buka WhatsApp tab baru, Salin teks);
+  `/bounty`: tombol "Tagih via WA" (label ikut AS terpilih) di toolbar daftar.
+[CATATAN] Butuh WhatsApp Desktop atau internet (WhatsApp Web) di PC pengguna; server tetap LAN. Kalimat
+penutup "Mohon segera dikembalikan ke GA CGA ya 🙏" bisa diedit sebelum dikirim.
+
+### 2 Nov 2026 — Tahap 9j: Pendingan Alokasi — kota bisa dibuka/tutup
+- `src/app/sj/pendingan/page.tsx`: state `openKota` (localStorage `swms-pendingan-kota-open`, try/catch),
+  judul kota jadi tombol `aria-expanded` + jumlah toko/item + badge urgensi tinggi, Buka/Tutup semua,
+  `autoOpenAll` saat filter 1 kota / 1 kota saja, kota dari tujuan terpilih selalu terbuka.
+[VERIFIKASI] Vitest 57/57 (1 baru: pesan WA persis — urutan AS, sebagian, lunas diabaikan, tanpa utang → "",
+enkode link). Playwright (sandbox; data uji dihapus/dikembalikan): pesan semua AS benar, link `wa.me`
+decode = teks, `target=_blank`, teks diedit ikut ke link, kartu JTO → pesan hanya JTO tanpa total;
+Pendingan 4 kota (data uji) → semua tertutup + "Demak 2 tinggi", klik Kendal → terbuka, reload → tetap
+terbuka, Buka semua / Tutup semua; 0 error. `tsc` 0 error.

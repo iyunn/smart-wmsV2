@@ -9,12 +9,12 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 export type CostCenter = "ALL" | "CGA1" | "CGA2" | "CGA3";
-export type SearchField = "all" | "jenis" | "merk" | "kode_asset" | "kategori_oracle" | "deskripsi" | "invoice_number" | "catatan";
+export type SearchField = "all" | "jenis" | "merk" | "kode_asset" | "kategori_oracle" | "deskripsi" | "invoice_number" | "catatan" | "kode_tujuan";
 export type TagField = Exclude<SearchField, "all">;
 
 export interface FilterTag { field: TagField; value: string }
 
-export const TAG_FIELDS: readonly TagField[] = ["jenis", "merk", "kode_asset", "kategori_oracle", "deskripsi", "invoice_number", "catatan"];
+export const TAG_FIELDS: readonly TagField[] = ["jenis", "merk", "kode_asset", "kategori_oracle", "deskripsi", "invoice_number", "catatan", "kode_tujuan"];
 
 export const FIELD_LABEL: Record<SearchField, string> = {
   all:             "Semua Kolom",
@@ -25,6 +25,7 @@ export const FIELD_LABEL: Record<SearchField, string> = {
   deskripsi:       "Deskripsi",
   invoice_number:  "Invoice Number",
   catatan:         "Catatan",
+  kode_tujuan:     "Kode Tujuan",
 };
 
 /** Nama kolom yang dikenali saat flag diketik (huruf kecil, spasi/strip/garis bawah disamakan). */
@@ -36,6 +37,7 @@ const FIELD_ALIASES: Record<string, TagField> = {
   deskripsi: "deskripsi", desk: "deskripsi", desc: "deskripsi",
   invoice: "invoice_number", invoicenumber: "invoice_number", noinvoice: "invoice_number",
   catatan: "catatan", note: "catatan",
+  tujuan: "kode_tujuan", kodetujuan: "kode_tujuan",
 };
 
 export function fieldFromAlias(raw: string): TagField | null {
@@ -98,6 +100,9 @@ export interface FilterableAsset {
   deskripsi: string;
   invoice_number: string;
   catatan: string;
+  /** Toko tujuan dari SJ keluar terakhir (Rekap Alokasi); "" = belum dialokasikan */
+  kode_tujuan: string;
+  nama_tujuan: string;
 }
 
 export interface MonitoringFilters {
@@ -133,7 +138,8 @@ export function filterAssets<T extends FilterableAsset>(
       a.kategori_oracle.toLowerCase().includes(q) ||
       a.deskripsi.toLowerCase().includes(q) ||
       a.invoice_number.toLowerCase().includes(q) ||
-      catatanOf(a).toLowerCase().includes(q),
+      catatanOf(a).toLowerCase().includes(q) ||
+      a.kode_tujuan.toLowerCase().includes(q),
     );
   }
 
@@ -141,7 +147,9 @@ export function filterAssets<T extends FilterableAsset>(
     result = result.filter((a) =>
       f.tags.every((tag) => {
         const v = tag.value.toLowerCase();
-        const col = tag.field === "catatan" ? catatanOf(a) : a[tag.field];
+        // Kode Tujuan cocok dengan kode ATAU nama toko ("tujuan:T001" / "tujuan:sentosa")
+        const col = tag.field === "catatan" ? catatanOf(a)
+          : tag.field === "kode_tujuan" ? `${a.kode_tujuan} ${a.nama_tujuan}` : a[tag.field];
         return col.toLowerCase().includes(v);
       }),
     );

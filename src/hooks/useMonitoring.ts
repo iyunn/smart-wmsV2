@@ -18,6 +18,11 @@ export interface MonitoringAsset {
   invoice_number:  string;
   tanggal_dokumen: string;
   catatan:         string;
+  /** Toko tujuan dari SJ keluar terakhir yang memakai kode aset ini (Rekap Alokasi); "" = belum */
+  kode_tujuan:     string;
+  nama_tujuan:     string;
+  tujuan_no_sj:    string;
+  tujuan_tanggal:  string;
 }
 
 export function useMonitoring() {

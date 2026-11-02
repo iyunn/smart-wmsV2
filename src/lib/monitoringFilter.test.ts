@@ -29,9 +29,9 @@ describe("flag yang diketik", () => {
 });
 
 describe("filter aset (layar & PDF)", () => {
-  const base = { kode_asset: "", kategori_oracle: "C - PERALATAN KOMPUTER", deskripsi: "", invoice_number: "", catatan: "" };
+  const base = { kode_asset: "", kategori_oracle: "C - PERALATAN KOMPUTER", deskripsi: "", invoice_number: "", catatan: "", kode_tujuan: "", nama_tujuan: "" };
   const assets: FilterableAsset[] = [
-    { ...base, toko: "CGA1 - GUDANG 1", jenis: "Printer Ink Jet", merk: "Canon", kode_asset: "A1" },
+    { ...base, toko: "CGA1 - GUDANG 1", jenis: "Printer Ink Jet", merk: "Canon", kode_asset: "A1", kode_tujuan: "T001", nama_tujuan: "Toko Sentosa" },
     { ...base, toko: "CGA2 - GUDANG 2", jenis: "Printer Ink Jet", merk: "Epson", kode_asset: "A2" },
     { ...base, toko: "CGA1 - GUDANG 1", jenis: "Printer Dot Matrix", merk: "Epson", kode_asset: "A3", catatan: "rusak" },
   ];
@@ -45,6 +45,12 @@ describe("filter aset (layar & PDF)", () => {
     expect(run({ quickSearch: "RUSAK" })).toEqual(["A3"]);
     expect(filterAssets(assets, { costCenter: "ALL", quickSearch: "", tags: [{ field: "catatan", value: "baru" }] },
       (a) => (a.kode_asset === "A2" ? "baru diperbaiki" : a.catatan)).map((a) => a.kode_asset)).toEqual(["A2"]);
+  });
+  it("Kode Tujuan: flag tujuan: (kode atau nama toko), ikut pencarian semua kolom", () => {
+    expect(parseFlagQuery("tujuan:t001;merk:canon", "all").tags).toEqual([{ field: "kode_tujuan", value: "t001" }, { field: "merk", value: "canon" }]);
+    expect(run({ tags: [{ field: "kode_tujuan", value: "t001" }] })).toEqual(["A1"]);
+    expect(run({ tags: [{ field: "kode_tujuan", value: "sentosa" }] })).toEqual(["A1"]);
+    expect(run({ quickSearch: "T001" })).toEqual(["A1"]);
   });
   it("ringkasan filter untuk PDF", () => {
     expect(describeFilters({ costCenter: "CGA1", quickSearch: " ink ", tags: [{ field: "merk", value: "canon" }] }))

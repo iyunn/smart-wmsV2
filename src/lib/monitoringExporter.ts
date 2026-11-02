@@ -257,6 +257,7 @@ export function exportMonitoringToExcel(opts: MonitoringExportOptions): void {
       "Biaya Perolehan":  formatRupiah(a.biaya_perolehan),
       "Jumlah Tercatat":  formatRupiah(a.jumlah_tercatat),
       "Status Alokasi":   a.tag === "Allocated" ? "Allocated" : "Belum Dialokasikan",
+      "Kode Tujuan":      a.kode_tujuan ?? "",
       "Catatan":          catatanOverride[a.kode_asset] ?? a.catatan ?? "",
     }));
 
@@ -279,6 +280,7 @@ export function exportMonitoringToExcel(opts: MonitoringExportOptions): void {
     { wch: 22 }, // Biaya Perolehan
     { wch: 22 }, // Jumlah Tercatat
     { wch: 20 }, // Status Alokasi
+    { wch: 14 }, // Kode Tujuan
     { wch: 35 }, // Catatan
   ];
   XLSX.utils.book_append_sheet(wb, ws2, "Detail DAT");

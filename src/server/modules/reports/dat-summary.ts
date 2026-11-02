@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/server/db";
 import { WAREHOUSE_COST_CENTERS } from "@/lib/types";
 import { type MonitoringFilters, filterAssets } from "@/lib/monitoringFilter";
+import { latestTujuanByKode } from "@/server/modules/assets/queries";
 
 // Data Rekap DAT (PDF): toko → kategori_oracle → jenis. Agregasi sama dengan V1.
 // Dengan `filters` (Export PDF dari Monitoring), baris disaring dengan fungsi yang SAMA dengan
@@ -29,6 +30,7 @@ export async function getDATSummary(costCenter: string | null, filters?: Monitor
 
   // Disaring dengan nilai yang dinormalkan sama seperti data Monitoring (listMonitoringAssets):
   // jenis/merk kosong → "Unknown", teks lain kosong → "" — supaya hasil filter identik dengan layar.
+  const tujuan = filters ? await latestTujuanByKode() : null;
   const rows = filters
     ? filterAssets(
         all.map((r) => ({
@@ -41,6 +43,8 @@ export async function getDATSummary(costCenter: string | null, filters?: Monitor
           deskripsi: r.deskripsi ?? "",
           invoice_number: r.invoice_number ?? "",
           catatan: r.catatan ?? "",
+          kode_tujuan: tujuan?.get(r.kode_asset ?? "")?.kode ?? "",
+          nama_tujuan: tujuan?.get(r.kode_asset ?? "")?.nama ?? "",
         })),
         filters,
       ).map((v) => v.row)

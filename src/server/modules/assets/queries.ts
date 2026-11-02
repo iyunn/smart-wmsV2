@@ -15,8 +15,33 @@ export async function getFreshness() {
 }
 
 /** Monitoring: 1 baris per aset (assets_clean ⨝ assets_raw) + catatan. Bentuk sama dengan V1. */
+export interface TujuanAlokasi { kode: string; nama: string; no_sj: string; tanggal: string }
+
+/**
+ * Kode aset → toko tujuan dari transaksi SJ TERAKHIR-nya (tanggal terbaru, pengikat created_at),
+ * hanya bila transaksi terakhir itu SJ KELUAR. Aturan SAMA dengan pemulihan tag 'Allocated' saat
+ * upload DAT (src/server/modules/upload/dat.ts): SJ masuk terakhir = barang sudah kembali ke CGA → tidak ada.
+ * Dihitung saat dibaca (tidak disimpan), jadi ikut berubah begitu kode di Rekap Alokasi diubah/dihapus.
+ */
+export async function latestTujuanByKode(): Promise<Map<string, TujuanAlokasi>> {
+  const rows = await sql<{ kode_asset: string; jenis: string | null; kode: string | null; nama: string | null; no_sj: string | null; tanggal: string | null }>`
+    select distinct on (i.kode_asset) i.kode_asset, s.jenis, t.kode, t.nama, s.no_sj, s.tanggal::text as tanggal
+    from surat_jalan_items i
+    join surat_jalan s on s.id = i.sj_id
+    left join sj_tujuan t on t.id = s.tujuan_id
+    where i.kode_asset is not null and i.kode_asset <> ''
+    order by i.kode_asset, s.tanggal desc, s.created_at desc`.execute(db);
+  const map = new Map<string, TujuanAlokasi>();
+  for (const r of rows.rows) {
+    if ((r.jenis ?? "keluar") !== "keluar" || !r.kode) continue;
+    map.set(r.kode_asset, { kode: r.kode, nama: r.nama ?? "", no_sj: r.no_sj ?? "", tanggal: r.tanggal ?? "" });
+  }
+  return map;
+}
+
 export async function listMonitoringAssets() {
-  const rows = await db
+  const [rows, tujuan] = await Promise.all([
+    db
     .selectFrom("assets_clean as c")
     .innerJoin("assets_raw as r", "r.id", "c.raw_id")
     .leftJoin("asset_notes as n", "n.kode_asset", "r.kode_asset")
@@ -27,7 +52,9 @@ export async function listMonitoringAssets() {
       "n.catatan",
     ])
     .orderBy("r.kode_asset")
-    .execute();
+    .execute(),
+    latestTujuanByKode(),
+  ]);
 
   return rows.map((r) => ({
     clean_id:        r.clean_id,
@@ -45,6 +72,11 @@ export async function listMonitoringAssets() {
     invoice_number:  r.invoice_number ?? "",
     tanggal_dokumen: r.tanggal_dokumen ?? "",
     catatan:         r.catatan ?? "",
+    // Kode Tujuan: toko dari SJ keluar terakhir yang memakai kode aset ini (Rekap Alokasi)
+    kode_tujuan:     tujuan.get(r.kode_asset ?? "")?.kode ?? "",
+    nama_tujuan:     tujuan.get(r.kode_asset ?? "")?.nama ?? "",
+    tujuan_no_sj:    tujuan.get(r.kode_asset ?? "")?.no_sj ?? "",
+    tujuan_tanggal:  tujuan.get(r.kode_asset ?? "")?.tanggal ?? "",
   }));
 }
 

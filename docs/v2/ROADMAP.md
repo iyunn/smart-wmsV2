@@ -301,6 +301,19 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 **Selesai bila:** memilih SJ Masuk/Keluar hanya menampilkan & mengekspor jenis itu.
 **STOP**
 
+### 9h — Monitoring DAT: kolom Kode Tujuan (permintaan Fillian 2 Nov) 🚧
+- Kode aset diisi di Rekap Alokasi → Monitoring DAT menampilkan **Kode Tujuan** = kode toko dari SJ yang
+  memakai kode itu. Keputusan Fillian: 1 kode di beberapa SJ → **SJ terakhir**; transaksi terakhir **SJ masuk
+  → kosong** (barang sudah kembali ke CGA). Aturan sama dengan pemulihan tag Allocated saat upload DAT
+- Dihitung saat dibaca (`latestTujuanByKode()` di `src/server/modules/assets/queries.ts`, satu query
+  `distinct on`), tidak disimpan → ikut berubah saat kode di Rekap Alokasi diubah/dihapus dan tetap ada setelah
+  upload DAT. Alur Rekap Alokasi & tag Allocated **tidak diubah**
+- Kolom tabel (bisa diurutkan, tooltip: nama toko + No. SJ + tanggal), **Export Excel** (kolom "Kode Tujuan"),
+  **bisa dicari**: dropdown "Kode Tujuan" / ketik `tujuan:T001` (cocok kode atau nama toko), ikut pencarian
+  Semua Kolom dan Export PDF
+**Selesai bila:** kode aset yang dialokasikan ke SJ keluar menampilkan kode tokonya di Monitoring.
+**STOP**
+
 ### 9b — Pemilih warna lanjutan ✅ (9b-1 `59bb5e9`, 9b-2 `0d2d7b3`)
 Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek:
 - **9b-1 Preset & bagikan warna** ✅ kode — `src/lib/theme/presets.ts`: 7 preset (Bawaan, Laut, Hutan, Senja,

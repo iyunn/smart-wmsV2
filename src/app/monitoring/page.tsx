@@ -23,6 +23,7 @@ const FIELD_OPTIONS: { value: SearchField; label: string }[] = [
   { value: "deskripsi",       label: "Deskripsi"       },
   { value: "invoice_number",  label: "Invoice Number"  },
   { value: "catatan",         label: "Catatan"         },
+  { value: "kode_tujuan",     label: "Kode Tujuan"     },
 ];
 
 
@@ -161,6 +162,7 @@ const MultiFieldTagInput = memo(({ tags, onChange, quickSearch, onQuickSearchCha
     deskripsi:       "bg-slate-500/15 border-slate-500/25 text-slate-300",
     invoice_number:  "bg-emerald-500/15 border-emerald-500/25 text-emerald-300",
     catatan:         "bg-rose-500/15 border-rose-500/25 text-rose-300",
+    kode_tujuan:     "bg-blue-500/15 border-blue-500/25 text-blue-300",
   };
 
   return (
@@ -313,7 +315,7 @@ PBtn.displayName = "PBtn";
 type SortKey =
   | "kategori_oracle" | "jenis" | "merk" | "toko" | "kode_asset"
   | "deskripsi" | "kuantitas" | "biaya_perolehan" | "jumlah_tercatat"
-  | "invoice_number" | "tanggal_dokumen" | "catatan";
+  | "invoice_number" | "tanggal_dokumen" | "catatan" | "kode_tujuan";
 
 type SortDir = "asc" | "desc";
 
@@ -874,13 +876,14 @@ export default function MonitoringPage() {
               {/* Table dengan horizontal scroll */}
               <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] shadow-xl shadow-black/30">
                 <div className="overflow-x-auto">
-                  <div className="min-w-[1880px]">
-                    <div className="grid grid-cols-[55px_140px_110px_70px_115px_1fr_50px_110px_110px_150px_120px_150px] gap-3 border-b border-white/[0.06] px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-white/25">
+                  <div className="min-w-[1990px]">
+                    <div className="grid grid-cols-[55px_140px_110px_70px_115px_95px_1fr_50px_110px_110px_150px_120px_150px] gap-3 border-b border-white/[0.06] px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-white/25">
                       <SortableHeader label="Kat." sortKey="kategori_oracle" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="Jenis" sortKey="jenis" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="Merk" sortKey="merk" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="CGA" sortKey="toko" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="Kode Aset" sortKey="kode_asset" currentSort={sort} onSort={handleSort} />
+                      <SortableHeader label="Kode Tujuan" sortKey="kode_tujuan" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="Deskripsi" sortKey="deskripsi" currentSort={sort} onSort={handleSort} />
                       <SortableHeader label="Qty" sortKey="kuantitas" currentSort={sort} onSort={handleSort} align="right" />
                       <SortableHeader label="Perolehan" sortKey="biaya_perolehan" currentSort={sort} onSort={handleSort} align="right" />
@@ -909,12 +912,20 @@ export default function MonitoringPage() {
                       <div className="divide-y divide-white/[0.04]">
                         {paginated.map((a) => (
                           <div key={a.clean_id}
-                            className="grid grid-cols-[55px_140px_110px_70px_115px_1fr_50px_110px_110px_150px_120px_150px] gap-3 items-center px-4 py-2.5 hover:bg-white/[0.02] transition-colors text-[11px]">
+                            className="grid grid-cols-[55px_140px_110px_70px_115px_95px_1fr_50px_110px_110px_150px_120px_150px] gap-3 items-center px-4 py-2.5 hover:bg-white/[0.02] transition-colors text-[11px]">
                             <span className="text-white/50 truncate text-[10px] font-mono" title={a.kategori_oracle}>{extractKategoriCode(a.kategori_oracle)}</span>
                             <span className="text-white/80 font-medium truncate" title={a.jenis}>{a.jenis}</span>
                             <span className="text-white/60 truncate" title={a.merk}>{a.merk}</span>
                             <div><CGABadge toko={a.toko} /></div>
                             <span className="font-mono text-[10px] text-cyan-400/70 truncate" title={a.kode_asset}>{a.kode_asset}</span>
+                            {a.kode_tujuan ? (
+                              <span className="font-mono text-[10px] text-blue-300 truncate"
+                                title={`${a.kode_tujuan}${a.nama_tujuan ? " — " + a.nama_tujuan : ""}${a.tujuan_no_sj ? "\n" + a.tujuan_no_sj : ""}${a.tujuan_tanggal ? " (" + a.tujuan_tanggal + ")" : ""}`}>
+                                {a.kode_tujuan}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-white/20">—</span>
+                            )}
                             <span className="text-white/50 truncate text-[10px]" title={a.deskripsi}>
                               {a.tag === "Allocated" && (
                                 <span className="inline-flex items-center mr-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border bg-blue-500/15 text-blue-300 border-blue-500/25 align-middle">

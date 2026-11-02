@@ -4064,3 +4064,21 @@ Excel ikut; dropdown Jenis + "printer" → 500 (lama); lalu `merk:epson;dot` di 
 SJ Masuk → 1.477 item / 385 SJ, semua No. SJ hijau; SJ Keluar → 5.912 / 1.540, semua cyan; Excel
 `Report-Alokasi-SJ-Masuk-Semua-Periode-….xlsx` 1.477 baris, kolom Masuk/Keluar hanya "Masuk"; Reset →
 kembali 7.389; 0 error. `tsc` 0 error; Vitest 55/55.
+
+### 2 Nov 2026 — Tahap 9h: Monitoring DAT — kolom Kode Tujuan
+Permintaan Fillian: kode aset yang diisi di Rekap Alokasi → Monitoring DAT juga menampilkan kode tujuan SJ-nya
+("jangan merubah alur yang tidak perlu"). Keputusan: SJ terakhir; SJ masuk terakhir → kosong; ikut Excel &
+bisa dicari.
+- `latestTujuanByKode()` (aturan = `finalizeDATUpload` tag Allocated: `distinct on (kode_asset)` urut tanggal,
+  created_at; jenis terakhir harus keluar). Dipakai `listMonitoringAssets` (field `kode_tujuan`, `nama_tujuan`,
+  `tujuan_no_sj`, `tujuan_tanggal`) dan `getDATSummary` saat ada filter (PDF tetap = layar).
+- `monitoringFilter.ts`: field `kode_tujuan` (alias `tujuan`, `kodetujuan`), cocok `kode + nama`, ikut
+  pencarian Semua Kolom. Halaman: kolom + sort + dropdown; Excel sheet "Detail DAT" kolom "Kode Tujuan".
+
+[CATATAN] Kode yang transaksi terakhirnya SJ masuk tetap bertanda Allocated sampai upload DAT berikutnya
+(perilaku lama `patchAllocation`, tidak diubah) — Kode Tujuan-nya kosong.
+[VERIFIKASI] Vitest 56/56 (1 baru: flag `tujuan:`, cocok kode/nama, Semua Kolom). API (sandbox): kode dipakai
+SJ keluar lama (T845) lalu SJ keluar baru (T369) → T369; keluar lalu masuk → kosong; satu SJ keluar → T304;
+PDF filter `kode_tujuan: T369` → 1 item, "Filter: Kode Tujuan: T369". UI: sel + tooltip (nama toko, No. SJ,
+tanggal), `tujuan:T369` → 1 aset, sort, Excel kolom urut setelah Status Alokasi; hapus kode di SJ terbaru →
+kembali ke T845; semua kode dihapus → 0 terisi, tag bersih. Query `distinct on` 1,6 ms (7.389 item). 0 error.

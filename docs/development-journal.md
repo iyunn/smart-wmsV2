@@ -3909,3 +3909,11 @@ Skenario restore dari backup sebelum 0004: `import-lock.sql` membuat tabel + kun
 "deploywindowsbackup.ps1 does not exist". Solusi: path dengan `/` (chat-rule §2).
 [SISA] Pause Supabase, matikan Vercel V1, tag `v1.0-cloud-ta`; salin dump ke flashdisk; salinan luar disk;
 6a: restart tanpa login, rollback, DHCP reservation; rotasi password viewer.
+
+### 2 Nov 2026 — Tahap 6a: uji restart
+- `status.ps1` sesudah akhir pekan: health ok, kunci impor aktif, backup harian 1 Nov 18:30 OK, log error kosong.
+- ✅ Restart PC tanpa login → aplikasi terbuka dari PC lain (Fillian). PRD §7 "service bertahan" tercentang.
+
+[KEPUTUSAN] Uji `rollback.ps1` manual ditunda (Fillian): rollback otomatis di `deploy.ps1` sudah ada dan
+memakai mekanisme yang sama; uji di deploy berikutnya.
+[SISA] DHCP reservation; konfirmasi Supabase di-pause / Vercel V1 mati / tag `v1.0-cloud-ta`; UAT Tahap 7.

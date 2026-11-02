@@ -144,7 +144,7 @@ Angka di bawah adalah **target** yang diukur saat UAT, bukan hasil yang sudah te
 - [x] ~~Jumlah baris semua tabel identik dengan Supabase pada saat freeze~~ → diganti (30 Okt, ARCHITECTURE D-38): data V1 sudah diimpor 30 Okt dan V2 sudah dipakai; kriteria baru: tidak ada baris V1 sesudah impor yang belum ada di `smartwms` (atau V1 tidak dipakai lagi sejak impor) — ✅ Fillian 30 Okt: V1 tidak dipakai input sejak impor
 - [ ] Semua akun bisa login (atau sudah di-reset Super Admin)
 - [x] Restore dari backup berhasil diuji minimal 1 kali (30 Okt, `restore.ps1`: 17 tabel identik dengan produksi)
-- [ ] Service bertahan setelah PC di-restart
+- [x] Service bertahan setelah PC di-restart (2 Nov 2026: restart tanpa login, aplikasi terbuka dari PC lain)
 - [ ] Tag `v1.0-cloud-ta` ada di repo V1
 - [ ] Project Supabase di-pause / akses anon dicabut di hari cutover; dump terakhir disimpan sebagai cadangan
 

@@ -193,8 +193,13 @@ Runbook: `docs/v2/DEPLOY-LOKAL.md`.
   menolak database berkunci / berisi data. **Sejak 30 Okt `smartwms` = sumber kebenaran — tidak ada impor ulang**
 - ✅ 30 Okt di PC: deploy `bbf2b71`, `status.ps1` → "Kunci impor V1 : aktif sejak 2026-10-30 11:17 UTC";
   `releases` dibatasi 3 rilis (±34 MB/rilis), `src` ±670 MB stabil
-- Sisa: restart PC tanpa login, `rollback.ps1` + deploy ulang, DHCP reservation MAC Ethernet
-  tanpa login, deploy kedua + rollback; DHCP reservation
+- ✅ Deploy update berkali-kali (`7b183a5` → `aaa956d` → `56843a1` → `bbf2b71`), rilis lama dibersihkan otomatis
+- ✅ 2 Nov: PC di-restart **tanpa login** → `http://192.168.20.27:3000` terbuka dari PC lain (Fillian);
+  backup harian tetap jalan selama akhir pekan (1 Nov 18:30)
+- ⏸ Uji `rollback.ps1` manual **ditunda** (keputusan Fillian 2 Nov): rollback otomatis di `deploy.ps1`
+  sudah ada, mekanismenya sama (pindah junction). Uji saat deploy berikutnya: rollback → kembali
+  `rollback.ps1 -Release <terbaru>`
+- Sisa: DHCP reservation MAC Ethernet di router
 **Selesai bila:** `http://<IP>:3000` terbuka dari PC lain; service menyala sendiri setelah PC restart
 tanpa login; `deploy.ps1` kedua kali (update) dan `rollback.ps1` berhasil.
 **STOP**

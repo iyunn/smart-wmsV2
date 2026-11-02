@@ -7,11 +7,13 @@
 // kembali ke warna tersimpan. Jalan keluar bila layar tak terbaca: /pengaturan/tema?reset-theme
 // Tahap 9b: preset sekali klik (src/lib/theme/presets.ts) dan bagikan warna lewat file/kode JSON
 // (src/lib/theme/share.ts) — keduanya hanya mengisi draft; tersimpan tetap lewat "Simpan".
+// Tahap 9b-2: pemilih warna = roda warna sendiri (src/components/ColorPicker.tsx).
 // ══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
+import ColorPicker from "@/components/ColorPicker";
 import { useTheme } from "@/components/ThemeContext";
 import {
   CUSTOM_TOKENS, DEFAULT_TOKENS, HEX_COLOR, contrastRatio, diffFromDefault,
@@ -278,9 +280,8 @@ export default function ThemeSettingsPage() {
                         const text = hexText[t.key] ?? value;
                         return (
                           <div key={t.key} className="flex items-center gap-3 rounded-xl border border-line bg-panel px-3 py-2.5">
-                            <input type="color" value={value.toLowerCase()} aria-label={t.label}
-                              onChange={(e) => { setHexText((h) => ({ ...h, [t.key]: undefined })); update(t.key, e.target.value); }}
-                              className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-line-strong bg-transparent p-0.5" />
+                            <ColorPicker value={value} label={t.label} swatches={Object.values(cur)}
+                              onChange={(hex) => { setHexText((h) => ({ ...h, [t.key]: undefined })); update(t.key, hex); }} />
                             <div className="min-w-0 flex-1">
                               <p className="text-[13px] font-semibold text-heading truncate">{t.label}</p>
                               <p className="text-[12px] text-muted truncate" title={t.hint}>{t.hint}</p>

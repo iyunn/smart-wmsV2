@@ -3984,3 +3984,16 @@ selain nilai awal yang dipilih; 5 uji ekspor/impor termasuk kunci asing, `url(..
 Playwright: preset Laut → `--accent` #7CCFD8 (gelap) / #0F6E7A (terang), simpan → DB, unduh file → format
 benar, Bawaan → impor file kembali → Laut aktif lagi, kode `{"halo":1}` ditolak dengan pesan, kode polos
 diterima; 0 page error. `tsc` 0 error.
+✅ 9b-1 dideploy (`59bb5e9`).
+
+### 2 Nov 2026 — Tahap 9b-2: roda warna
+- `src/lib/theme/color.ts`: `hexToHsv`, `hsvToHex`, `angleToHue` + `color.test.ts`.
+- `src/components/ColorPicker.tsx` menggantikan `<input type="color">` di `/pengaturan/tema`: cincin hue
+  (`conic-gradient` + mask) dan kotak S/V di tengah; `role="slider"` + `aria-valuetext` untuk keduanya;
+  pointer capture (mouse & sentuh); hue disimpan di state lokal supaya tidak meloncat saat s/v = 0; nilai
+  dari luar (ketik hex, preset, reset) disinkronkan; buka ke atas bila ruang bawah < ±400 px.
+[VERIFIKASI] Vitest 45/45 (3 baru: bolak-balik hex↔hsv semua warna bawaan & preset, nilai acuan, sudut
+roda). Playwright: klik cincin kanan → hue 90 (`--accent` #78D11F, kolom hex ikut), seret ke kiri → 270,
+klik kotak → "kepekatan 80%, kecerahan 70%", Shift+→ → 280, ↑ → kecerahan 71%, kepekatan 0 → hue tetap,
+klik warna lain di tema → dipakai, Esc & klik luar menutup, ketik `#00FF00` → roda hue 120, warna paling
+bawah (Ungu/LPP) → panel membuka ke atas dan utuh di layar; 0 page error. `tsc` 0 error.

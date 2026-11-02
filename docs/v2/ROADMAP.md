@@ -289,8 +289,11 @@ Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek
   klik = isi draft (belum tersimpan), kartu aktif ditandai "dipakai". `src/lib/theme/share.ts`: Unduh file
   `smartwms-warna.json` / Salin kode / Buka file / Tempel kode (format `smartwms-tema` v1, disaring
   `sanitizeCustomTheme`, maks 20 KB). Tanpa perubahan database/API.
-- **9b-2 Roda warna** — pemilih warna sendiri (roda hue + kotak saturasi/kecerahan) menggantikan pemilih
-  bawaan browser yang tampilannya beda-beda di tiap browser
+- ✅ 9b-1 dideploy (`59bb5e9`)
+- **9b-2 Roda warna** ✅ kode — `src/components/ColorPicker.tsx`: tombol contoh warna → panel roda (cincin hue
+  + kotak kepekatan/kecerahan) + "warna lain di tema ini"; seret mouse/jari, keyboard (panah ±1,
+  Shift ±10), hue diingat saat warna abu-abu, Esc/klik luar menutup, panel membuka ke atas bila ruang di
+  bawah kurang. Konversi HSV di `src/lib/theme/color.ts` (diuji). Kolom hex tetap ada
 - ~~Edit warna turunan satu per satu~~ — **tidak dikerjakan**: ±50 warna turunan dihitung dari 18 warna dasar
   (D-37); membukanya = data per user ±4× lebih besar dan warna mudah tidak serasi. Ganti warna dasar sudah
   mengubah turunannya

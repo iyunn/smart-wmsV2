@@ -282,7 +282,19 @@ Setiap improvement dari PRD §5.D mendapat sub-tahap sendiri di sini.
 - ✅ 2 Nov: deploy `fcd7a51` (Fillian)
 **STOP**
 
-### 9b — Pemilih warna lanjutan 🚧 (Fillian 2 Nov: dikerjakan sebelum 9e)
+### 9f — Monitoring: Export PDF ikut filter + flag diketik (permintaan Fillian 2 Nov) 🚧
+- 🐞 Export PDF (Rekap DAT) selalu berisi SEMUA data, tidak ikut filter seperti Export Excel. Fix: filter
+  dipindah ke `src/lib/monitoringFilter.ts` dan dipakai **tabel, Export Excel, dan server PDF** (satu fungsi);
+  `POST /api/reports/dat-summary { cost_center, quick, tags }` → PDF hanya baris yang cocok, judul halaman
+  menulis "Filter: …", nama file ikut filter. `GET ?cost_center=` tetap (tanpa filter lain)
+- Flag bisa diketik langsung: `jenis:printer ink jet;merk:canon` + Enter → 2 flag (pemisah `;`, nama kolom
+  tanpa beda huruf besar/kecil, alias `kode`/`kategori`/`invoice`/`desk`/`merek`). Berlaku di mode Semua Kolom
+  (flag langsung menyaring saat diketik, Enter menjadikan chip, teks polos tetap pencarian biasa) dan di mode
+  kolom (teks polos tetap jadi flag kolom yang dipilih — perilaku lama). Nama kolom tak dikenal = teks biasa
+**Selesai bila:** PDF = data yang tampil di tabel untuk filter yang sama; flag diketik membentuk chip.
+**STOP**
+
+### 9b — Pemilih warna lanjutan ✅ (9b-1 `59bb5e9`, 9b-2 `0d2d7b3`)
 Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek:
 - **9b-1 Preset & bagikan warna** ✅ kode — `src/lib/theme/presets.ts`: 7 preset (Bawaan, Laut, Hutan, Senja,
   Anggur, Grafit, Kontras tinggi) untuk terang & gelap, **dijaga test kontras AA 4.5:1** (11 pasangan × 2 mode);
@@ -298,7 +310,7 @@ Dipecah per tahap kecil (preferensi Fillian), masing-masing berhenti untuk dicek
   (D-37); membukanya = data per user ±4× lebih besar dan warna mudah tidak serasi. Ganti warna dasar sudah
   mengubah turunannya
 
-### 9e — Bounty Hunter: catatan pinjaman/janji AS 🚧 (9e-1 dideploy `85a5d87`)
+### 9e — Bounty Hunter: catatan pinjaman/janji AS ✅ (9e-1 `85a5d87`, 9e-2 `ebaef9c`, dicek Fillian)
 Masalah (Fillian 2 Nov): AS (Area Supervisor, inisial mis. "JTO") meminjam barang (mis. printer dot matrix
 untuk toko kelolaannya) dan berjanji mengembalikan barang rusaknya; janji terlupa, atau barang dikembalikan
 ke orang lain. Semua user perlu bisa melihat & memperbarui.

@@ -6,16 +6,10 @@ import Topbar from "@/components/Topbar";
 import { useMonitoring, useLPPMonitoring, type LPPRawItem } from "@/hooks/useMonitoring";
 import { exportMonitoringToExcel, buildMonitoringFilename } from "@/lib/monitoringExporter";
 import StagingTab from "@/components/StagingTab";
-
-type CostCenter  = "ALL" | "CGA1" | "CGA2" | "CGA3";
-type SearchField = "all" | "jenis" | "merk" | "kode_asset" | "kategori_oracle" | "deskripsi" | "invoice_number" | "catatan";
-
-// Tag punya field + value masing-masing
-interface FilterTag {
-  field: SearchField;
-  value: string;
-  label: string; // display: "Jenis: CPU"
-}
+import {
+  type CostCenter, type FilterTag, type MonitoringFilters, type SearchField,
+  FIELD_LABEL, dedupeTags, describeFilters, extractCGACode, filterAssets, parseFlagQuery,
+} from "@/lib/monitoringFilter";
 
 const PAGE_SIZE = 30;
 
@@ -31,16 +25,6 @@ const FIELD_OPTIONS: { value: SearchField; label: string }[] = [
   { value: "catatan",         label: "Catatan"         },
 ];
 
-const FIELD_LABEL: Record<SearchField, string> = {
-  all:             "Semua Kolom",
-  jenis:           "Jenis",
-  merk:            "Merk",
-  kode_asset:      "Kode Aset",
-  kategori_oracle: "Kategori",
-  deskripsi:       "Deskripsi",
-  invoice_number:  "Invoice Number",
-  catatan:         "Catatan",
-};
 
 // ─── CGA config ───────────────────────────────────────────────────────────
 const CGA_BADGE: Record<string, string> = {
@@ -49,12 +33,6 @@ const CGA_BADGE: Record<string, string> = {
   CGA3: "bg-rose-500/10 text-rose-300 border-rose-500/20",
 };
 
-// Extract kode CGA dari nama panjang DB
-// "CGA1 – CADANGAN GENERAL AFFAIRS 1" → "CGA1"
-function extractCGACode(toko: string): string {
-  const match = toko.match(/CGA\d/i);
-  return match ? match[0].toUpperCase() : toko;
-}
 
 // Extract kode kategori dari format "C - PERALATAN KOMPUTER" → "C"
 // Format selalu: "kode + spasi + - + spasi + nama". Ambil sebelum " - " pertama.
@@ -141,20 +119,24 @@ const MultiFieldTagInput = memo(({ tags, onChange, quickSearch, onQuickSearchCha
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Enter: teks → flag. Bisa ketik langsung "jenis:printer ink jet;merk:canon" (lihat parseFlagQuery);
+  // teks polos tetap jadi flag kolom yang dipilih di dropdown (perilaku lama).
   const addTag = useCallback((val: string) => {
-    const trimmed = val.trim();
-    if (!trimmed) return;
-    // Cek duplikat field+value yang sama
-    const exists = tags.some(t => t.field === selectedField && t.value.toLowerCase() === trimmed.toLowerCase());
-    if (exists) { setInput(""); return; }
-    const newTag: FilterTag = {
-      field: selectedField,
-      value: trimmed,
-      label: `${FIELD_LABEL[selectedField]}: ${trimmed}`,
-    };
-    onChange([...tags, newTag]);
+    if (!val.trim()) return;
+    const parsed = parseFlagQuery(val, selectedField);
+    const next = dedupeTags([...tags, ...parsed.tags]);
+    if (next.length !== tags.length) onChange(next);
     setInput("");
   }, [tags, selectedField, onChange]);
+
+  // Mode Semua Kolom: Enter mengubah bagian "kolom:kata" jadi flag, sisanya tetap pencarian biasa
+  const quickParsed = useMemo(() => parseFlagQuery(quickSearch, "all"), [quickSearch]);
+  const commitQuick = useCallback(() => {
+    if (!quickParsed.hasFlags) return;
+    const next = dedupeTags([...tags, ...quickParsed.tags]);
+    if (next.length !== tags.length) onChange(next);
+    onQuickSearchChange(quickParsed.rest);
+  }, [quickParsed, tags, onChange, onQuickSearchChange]);
 
   const removeTag = useCallback((idx: number) => {
     onChange(tags.filter((_, i) => i !== idx));
@@ -192,16 +174,44 @@ const MultiFieldTagInput = memo(({ tags, onChange, quickSearch, onQuickSearchCha
         />
       </div>
 
-      {/* Mode Semua Kolom: real-time input langsung */}
+      {/* Mode Semua Kolom: real-time input langsung (+ flag yang sudah terbentuk tetap terlihat) */}
       {selectedField === "all" ? (
-        <input
-          type="text"
-          value={quickSearch}
-          onChange={(e) => onQuickSearchChange(e.target.value)}
-          placeholder="Ketik untuk cari di semua kolom..."
-          suppressHydrationWarning
-          className="flex-1 min-h-[34px] min-w-[200px] rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-[12px] text-slate-300 placeholder:text-slate-600 outline-none focus:border-cyan-500/50 transition-all"
-        />
+        <div className="flex-1 min-w-[200px] space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 focus-within:border-cyan-500/50 transition-all">
+            {tags.map((tag, idx) => (
+              <span key={`${tag.field}-${tag.value}`}
+                className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-md px-2 py-0.5 border ${TAG_COLORS[tag.field]}`}>
+                <span className="opacity-60 text-[9px] mr-0.5">{FIELD_LABEL[tag.field]}:</span>
+                {tag.value}
+                <button type="button" aria-label={`Hapus filter ${FIELD_LABEL[tag.field]} ${tag.value}`}
+                  onClick={(e) => { e.stopPropagation(); removeTag(idx); }}
+                  className="opacity-60 hover:opacity-100 transition-opacity ml-0.5">
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M1 1l8 8M9 1L1 9" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              value={quickSearch}
+              onChange={(e) => onQuickSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitQuick(); }
+                else if (e.key === "Backspace" && quickSearch === "" && tags.length > 0) removeTag(tags.length - 1);
+              }}
+              aria-label="Cari di semua kolom"
+              placeholder={tags.length === 0 ? "Cari semua kolom… atau ketik jenis:printer;merk:canon lalu Enter" : ""}
+              suppressHydrationWarning
+              className="flex-1 min-w-[160px] bg-transparent px-1 text-[12px] text-slate-300 placeholder:text-slate-600 outline-none"
+            />
+          </div>
+          {quickParsed.hasFlags && (
+            <p className="text-[10px] text-cyan-300/80">
+              Tekan Enter untuk menjadikan filter: {quickParsed.tags.map(t => `${FIELD_LABEL[t.field]} "${t.value}"`).join(" + ")}
+            </p>
+          )}
+        </div>
       ) : (
         /* Mode kolom spesifik: tag system (Enter) */
         <div
@@ -230,7 +240,8 @@ const MultiFieldTagInput = memo(({ tags, onChange, quickSearch, onQuickSearchCha
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => { if (input.trim()) addTag(input); }}
-            placeholder={tags.length === 0 ? `Ketik ${FIELD_LABEL[selectedField]} lalu Enter...` : ""}
+            aria-label={`Filter ${FIELD_LABEL[selectedField]}`}
+            placeholder={tags.length === 0 ? `Ketik ${FIELD_LABEL[selectedField]} lalu Enter (atau jenis:…;merk:…)` : ""}
             suppressHydrationWarning
             className="flex-1 min-w-[120px] bg-transparent text-[12px] text-slate-300 placeholder:text-slate-600 outline-none"
           />
@@ -426,49 +437,17 @@ export default function MonitoringPage() {
   }, []);
 
   // ── Filter logic ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    let result = assets;
+  // Flag yang diketik di "Semua Kolom" tapi belum di-Enter sudah ikut menyaring (pratinjau langsung).
+  // Filter yang sama dipakai tabel, Export Excel, dan Export PDF (server) — src/lib/monitoringFilter.ts.
+  const activeFilters = useMemo<MonitoringFilters>(() => {
+    const live = parseFlagQuery(quickSearch, "all");
+    return { costCenter, quickSearch: live.rest, tags: dedupeTags([...filterTags, ...live.tags]) };
+  }, [costCenter, quickSearch, filterTags]);
 
-    // Cost center filter — bandingkan kode extracted
-    if (costCenter !== "ALL") {
-      result = result.filter(a => extractCGACode(a.toko) === costCenter);
-    }
-
-    // Quick search real-time (mode "Semua Kolom")
-    if (quickSearch.trim()) {
-      const q = quickSearch.toLowerCase().trim();
-      result = result.filter(a =>
-        a.jenis.toLowerCase().includes(q) ||
-        a.merk.toLowerCase().includes(q) ||
-        a.kode_asset.toLowerCase().includes(q) ||
-        a.kategori_oracle.toLowerCase().includes(q) ||
-        a.deskripsi.toLowerCase().includes(q) ||
-        a.invoice_number.toLowerCase().includes(q) ||
-        (catatanOverride[a.kode_asset] ?? a.catatan).toLowerCase().includes(q)
-      );
-    }
-
-    // AND logic: semua tag harus match (mode kolom spesifik)
-    if (filterTags.length > 0) {
-      result = result.filter(a =>
-        filterTags.every(tag => {
-          const q = tag.value.toLowerCase();
-          switch (tag.field) {
-            case "jenis":           return a.jenis.toLowerCase().includes(q);
-            case "merk":            return a.merk.toLowerCase().includes(q);
-            case "kode_asset":      return a.kode_asset.toLowerCase().includes(q);
-            case "kategori_oracle": return a.kategori_oracle.toLowerCase().includes(q);
-            case "deskripsi":       return a.deskripsi.toLowerCase().includes(q);
-            case "invoice_number":  return a.invoice_number.toLowerCase().includes(q);
-            case "catatan":         return (catatanOverride[a.kode_asset] ?? a.catatan).toLowerCase().includes(q);
-            default:                return true;
-          }
-        })
-      );
-    }
-
-    return result;
-  }, [assets, costCenter, quickSearch, filterTags, catatanOverride]);
+  const filtered = useMemo(
+    () => filterAssets(assets, activeFilters, (a) => catatanOverride[a.kode_asset] ?? a.catatan),
+    [assets, activeFilters, catatanOverride],
+  );
 
   // Sort: kalau sort.key null → default multi-sort (Kategori→Jenis→Merk→CGA→Kode).
   // Kalau ada sort.key → sort by kolom itu (asc/desc).
@@ -579,9 +558,18 @@ export default function MonitoringPage() {
   const [pdfLoading, setPdfLoading] = useState(false);
 
   const handleExportPdf = useCallback(async () => {
+    if (filtered.length === 0) {
+      alert("Tidak ada data untuk diekspor.");
+      return;
+    }
     setPdfLoading(true);
     try {
-      const res = await fetch(`/api/reports/dat-summary?cost_center=ALL`);
+      // Filter yang sama dengan tabel & Export Excel; server menyaring dengan fungsi yang sama
+      const res = await fetch("/api/reports/dat-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cost_center: activeFilters.costCenter, quick: activeFilters.quickSearch, tags: activeFilters.tags }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? `Server error ${res.status}`);
@@ -590,7 +578,9 @@ export default function MonitoringPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `DAT-Summary-ALL-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const label = describeFilters(activeFilters);
+      const slug = label ? label.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) : "ALL";
+      a.download = `DAT-Summary-${slug}-${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -600,7 +590,7 @@ export default function MonitoringPage() {
     } finally {
       setPdfLoading(false);
     }
-  }, []);
+  }, [filtered.length, activeFilters]);
 
   const handleExport = useCallback(() => {
     if (filtered.length === 0) {
@@ -608,15 +598,15 @@ export default function MonitoringPage() {
       return;
     }
     // Build tags string untuk filename
-    const tagSlugs = filterTags.map(t => `${FIELD_LABEL[t.field]}-${t.value}`);
+    const tagSlugs = activeFilters.tags.map(t => `${FIELD_LABEL[t.field]}-${t.value}`);
     exportMonitoringToExcel({
       assets: filtered,
-      searchField: filterTags.length > 0 ? filterTags[0].field : "all",
+      searchField: activeFilters.tags.length > 0 ? activeFilters.tags[0].field : "all",
       tags: tagSlugs,
       costCenter,
       catatanOverride,
     });
-  }, [filtered, filterTags, costCenter]);
+  }, [filtered, activeFilters, costCenter, catatanOverride]);
 
   // Summary stats
   const totalItem      = filtered.length;
@@ -827,7 +817,7 @@ export default function MonitoringPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40 shrink-0">Filter Kolom</span>
                     <p className="text-[10px] text-white/25">
-                      Pilih kolom → ketik value → Enter. Atau gunakan Semua Kolom untuk search real-time.
+                      Pilih kolom → ketik value → Enter. Atau ketik langsung <span className="font-mono text-white/40">jenis:printer ink jet;merk:canon</span> lalu Enter. Semua Kolom = search real-time.
                     </p>
                   </div>
                   <div className="flex items-start gap-2 flex-wrap">
@@ -869,11 +859,11 @@ export default function MonitoringPage() {
                 <p className="text-white/40">
                   Menampilkan{" "}
                   <span className="text-white/80 font-semibold">{sorted.length.toLocaleString()} aset</span>
-                  {filterTags.length > 0 && (
+                  {activeFilters.tags.length > 0 && (
                     <span className="text-white/30">
-                      {" "}— {filterTags.map(t => (
+                      {" "}— {activeFilters.tags.map(t => (
                         <span key={`${t.field}-${t.value}`} className="text-white/50 mx-0.5">
-                          {t.label}
+                          {FIELD_LABEL[t.field]}: {t.value}
                         </span>
                       ))}
                     </span>

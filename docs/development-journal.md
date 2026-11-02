@@ -4031,3 +4031,26 @@ dengan alasan → hilang, total diperbarui; cari "kasir" → 1; tema gelap OK; l
 tanpa login → 307 ke /login; 0 error console. `tsc` 0 error; Vitest 48/48. Data uji dihapus.
 [CATATAN] Di lebar HP (390 px) seluruh aplikasi masih sempit karena Sidebar tetap 230 px — berlaku untuk
 semua halaman (bukan khusus Bounty); kandidat Tahap 8.
+✅ 9e-2 dideploy (`ebaef9c`) dan dicek Fillian.
+
+### 2 Nov 2026 — Tahap 9f: Monitoring — Export PDF ikut filter, flag diketik
+[MASALAH] Export PDF memanggil `GET /api/reports/dat-summary?cost_center=ALL` (tetap, tanpa filter apa pun),
+sedangkan Export Excel memakai `filtered` di browser → isi PDF ≠ layar.
+- `src/lib/monitoringFilter.ts`: tipe & label kolom, `parseFlagQuery`, `filterAssets`, `extractCGACode`,
+  `describeFilters` (+ test). Halaman Monitoring memakai fungsi ini (filter inline & salinan tipe dihapus).
+- Server: `getDATSummary(costCenter, filters?)` mengambil kolom tambahan (merk, kode, deskripsi, invoice,
+  catatan) lalu menyaring dengan `filterAssets` (nilai kosong dinormalkan sama dengan `listMonitoringAssets`)
+  sebelum agregasi; `POST` route (zod strict). `DATSummaryDocument`: baris "Filter: …" / "Semua data".
+- Flag diketik: mode Semua Kolom kini menampilkan chip juga + petunjuk "Tekan Enter untuk menjadikan filter";
+  flag yang belum di-Enter sudah ikut menyaring (tabel, Excel, PDF memakai `activeFilters` yang sama).
+
+[KEPUTUSAN] Satu fungsi filter untuk layar dan PDF — tidak menulis ulang logika di SQL (risiko beda hasil).
+Cakupan data sama: DAT hanya CGA1–3 dan setiap baris raw punya baris clean (dicek di data dev).
+[VERIFIKASI] Vitest 55/55 (7 baru: contoh Fillian, spasi/alias/huruf besar, perilaku lama dropdown, teks
+polos di Semua Kolom, kolom tak dikenal, nilai kosong, duplikat, titik dua di isi, filter AND/cost center/
+catatan terbaru, ringkasan). Playwright + `pdftotext` (data dev diubah sementara: 120 Printer Ink Jet Canon,
+180 Ink Jet Epson, 200 Dot Matrix Epson; dikembalikan setelah uji): tanpa filter → PDF 5.173 = layar;
+ketik `jenis:printer ink jet;merk:canon` → layar 120 sebelum Enter + petunjuk; Enter → 2 chip, input kosong;
+PDF 120 (40/40/40) "Filter: Jenis: printer ink jet · Merk: canon"; + CGA2 → layar 40, PDF hanya CGA2 = 40;
+Excel ikut; dropdown Jenis + "printer" → 500 (lama); lalu `merk:epson;dot` di mode Jenis → 200; 0 error.
+`tsc` 0 error.

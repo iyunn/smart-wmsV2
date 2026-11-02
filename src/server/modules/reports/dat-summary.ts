@@ -1,24 +1,50 @@
 import "server-only";
 import { db } from "@/server/db";
 import { WAREHOUSE_COST_CENTERS } from "@/lib/types";
+import { type MonitoringFilters, filterAssets } from "@/lib/monitoringFilter";
 
 // Data Rekap DAT (PDF): toko → kategori_oracle → jenis. Agregasi sama dengan V1.
+// Dengan `filters` (Export PDF dari Monitoring), baris disaring dengan fungsi yang SAMA dengan
+// tabel di layar (src/lib/monitoringFilter.ts) sebelum diagregasi.
 
 type JenisData = { jenis: string; item: number; qty: number; perolehan: number; tercatat: number };
 type KategoriData = { kategori: string; items: JenisData[]; totalItem: number; totalQty: number; totalPerolehan: number; totalTercatat: number };
 export type TokoData = { toko: string; tokoCode: string; kategoris: KategoriData[]; totalItem: number; totalQty: number; totalPerolehan: number; totalTercatat: number };
 
-export async function getDATSummary(costCenter: string | null): Promise<TokoData[]> {
+export async function getDATSummary(costCenter: string | null, filters?: MonitoringFilters): Promise<TokoData[]> {
   const centers = costCenter && costCenter !== "ALL" ? [costCenter] : [...WAREHOUSE_COST_CENTERS];
 
-  const rows = await db
+  const all = await db
     .selectFrom("assets_raw as r")
     .leftJoin("assets_clean as c", "c.raw_id", "r.id")
-    .select(["r.toko", "r.kategori_oracle", "r.kuantitas", "r.biaya_perolehan", "r.jumlah_tercatat", "c.jenis"])
+    .leftJoin("asset_notes as n", "n.kode_asset", "r.kode_asset")
+    .select([
+      "r.toko", "r.kategori_oracle", "r.kuantitas", "r.biaya_perolehan", "r.jumlah_tercatat", "c.jenis",
+      "c.merk", "r.kode_asset", "r.deskripsi", "r.invoice_number", "n.catatan",
+    ])
     // V1: toko ILIKE 'CGA1%' OR ... (awalan, tanpa beda huruf besar/kecil)
     .where((eb) => eb.or(centers.map((c) => eb("r.toko", "ilike", `${c.replace(/[\\%_]/g, "\\$&")}%`))))
     .orderBy("r.kode_asset")
     .execute();
+
+  // Disaring dengan nilai yang dinormalkan sama seperti data Monitoring (listMonitoringAssets):
+  // jenis/merk kosong → "Unknown", teks lain kosong → "" — supaya hasil filter identik dengan layar.
+  const rows = filters
+    ? filterAssets(
+        all.map((r) => ({
+          row: r,
+          toko: r.toko ?? "",
+          jenis: r.jenis ?? "Unknown",
+          merk: r.merk ?? "Unknown",
+          kode_asset: r.kode_asset ?? "",
+          kategori_oracle: r.kategori_oracle ?? "",
+          deskripsi: r.deskripsi ?? "",
+          invoice_number: r.invoice_number ?? "",
+          catatan: r.catatan ?? "",
+        })),
+        filters,
+      ).map((v) => v.row)
+    : all;
 
   const tokoMap = new Map<string, Map<string, Map<string, JenisData>>>();
   for (const row of rows) {

@@ -270,6 +270,8 @@ interface TokoData {
 interface DATSummaryProps {
   data: TokoData[]
   generatedAt: string
+  /** Ringkasan filter Monitoring (mis. "CGA1 · Jenis: printer · Merk: canon"); kosong = semua data */
+  filterLabel?: string
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -336,7 +338,7 @@ const KategoriSection = ({ kategori, colors }: { kategori: KategoriData; colors:
 // sehingga konten yang tidak penuh 1 halaman akan menyisakan area kosong,
 // dan CGA berikutnya selalu mulai di halaman baru.
 
-export function DATSummaryDocument({ data, generatedAt }: DATSummaryProps) {
+export function DATSummaryDocument({ data, generatedAt, filterLabel = "" }: DATSummaryProps) {
   return (
     <Document
       title="Laporan Rekap DAT - Smart Warehouse"
@@ -359,6 +361,9 @@ export function DATSummaryDocument({ data, generatedAt }: DATSummaryProps) {
               <View style={styles.headerRight}>
                 <Text style={styles.headerDate}>
                   Digenerate: {formatDate(generatedAt)}
+                </Text>
+                <Text style={styles.headerDate}>
+                  {filterLabel ? `Filter: ${filterLabel}` : "Semua data"}
                 </Text>
               </View>
             </View>
